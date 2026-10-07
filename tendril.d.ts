@@ -45,6 +45,10 @@ export interface TendrilOptions {
   gravity?: number;
   /** Fast falling drops shed trailing micro-droplets. Default: true */
   dripTrail?: boolean;
+  /** Default startup anchor behavior ('off' | 'multi' | 'single'). 'off' = free floating until user anchors; 'multi' = starts anchored weaving; 'single' = starts anchored with single gliding pin. Default: 'off' */
+  defaultAnchor?: 'off' | 'multi' | 'single';
+  /** Optional custom starting position for the default anchor. If omitted, anchors at cursor entry point. Default: null */
+  defaultAnchorPos?: { x: number; y: number } | null;
   /** Triple-tap to anchor tail and sever falling ropes. Default: true */
   tripleTapAnchor?: boolean;
   /** Anchor interaction mode ('multi' | 'single' | 'off'). Default: 'multi' */
@@ -130,6 +134,18 @@ export class Tendril {
 
   /** Set blend mode dynamically ('difference' | 'normal' | 'screen'). Note: 'screen' is additive cyber glow, best viewed in dark mode. */
   setBlendMode(mode: string): void;
+
+  /** Set anchor mode dynamically ('multi' | 'single' | 'off') */
+  setAnchorMode(mode: 'multi' | 'single' | 'off'): void;
+
+  /** Get current anchor mode */
+  getAnchorMode(): 'multi' | 'single' | 'off';
+
+  /** Set default anchor mode dynamically ('off' | 'multi' | 'single') with optional starting coordinates */
+  setDefaultAnchor(mode: 'off' | 'multi' | 'single', pos?: { x: number; y: number }): void;
+
+  /** Get current default anchor mode */
+  getDefaultAnchor(): 'off' | 'multi' | 'single';
 
   /** Update runtime configuration parameters live */
   setOptions(options: Partial<TendrilOptions>): void;

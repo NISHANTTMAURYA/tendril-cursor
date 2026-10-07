@@ -79,6 +79,8 @@
     dripTrail: true,            // Fast falling drops shed trailing droplets
 
     // 2-Stage Triple-Tap Anchor & Multi-Waypoint Mechanics
+    defaultAnchor: 'off',       // 'off' (free floating by default) | 'multi' (starts anchored in multi mode) | 'single' (starts anchored in single mode)
+    defaultAnchorPos: null,     // Optional start coordinates { x: number, y: number }, or null to anchor at cursor entry point
     anchorMode: 'multi',        // 'multi' (multi-pin weaving) | 'single' (1 pin only; old pin glides to the new spot) | 'off' (disabled)
     tripleTapAnchor: true,      // Triple-Tap = Toggle Anchor / Sever & Drop
     tripleTapMaxInterval: 480,  // Maximum milliseconds across 3 taps
@@ -415,6 +417,14 @@
         this.points[i].y = this.target.y;
         this.points[i].px = this.target.x;
         this.points[i].py = this.target.y;
+      }
+      // If defaultAnchor is configured ('multi' | 'single'), automatically drop initial pin
+      if (this.opts.defaultAnchor === 'multi' || this.opts.defaultAnchor === 'single') {
+        var startMode = this.opts.defaultAnchor;
+        this.setAnchorMode(startMode);
+        var anchorX = (this.opts.defaultAnchorPos && typeof this.opts.defaultAnchorPos.x === 'number') ? this.opts.defaultAnchorPos.x : this.target.x;
+        var anchorY = (this.opts.defaultAnchorPos && typeof this.opts.defaultAnchorPos.y === 'number') ? this.opts.defaultAnchorPos.y : this.target.y;
+        this.addCheckpoint(anchorX, anchorY);
       }
     }
 
@@ -800,6 +810,33 @@
 
   Tendril.prototype.getAnchorMode = function () {
     return this.opts.anchorMode;
+  };
+
+  /**
+   * Set default anchor mode dynamically ('off' | 'multi' | 'single')
+   */
+  Tendril.prototype.setDefaultAnchor = function (mode, pos) {
+    if (mode !== 'multi' && mode !== 'single' && mode !== 'off') {
+      console.warn('Tendril: Invalid defaultAnchor "' + mode + '". Use "multi", "single", or "off".');
+      return;
+    }
+    this.opts.defaultAnchor = mode;
+    if (pos) this.opts.defaultAnchorPos = pos;
+    if (mode === 'off') {
+      if (this.isAnchored) this.releaseAllAndDrop();
+    } else {
+      this.setAnchorMode(mode);
+      if (!this.isAnchored && this.started) {
+        var ax = (pos && typeof pos.x === 'number') ? pos.x : this.target.x;
+        var ay = (pos && typeof pos.y === 'number') ? pos.y : this.target.y;
+        this.addCheckpoint(ax, ay);
+      }
+    }
+    this._wake();
+  };
+
+  Tendril.prototype.getDefaultAnchor = function () {
+    return this.opts.defaultAnchor;
   };
 
   /**
@@ -1947,18 +1984,19 @@
 
   // Auto-init via data attribute
   if (typeof document !== 'undefined') {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', function () {
-        var auto = document.querySelector('[data-tendril]');
-        if (auto && !window.__tendril_auto_instance) {
-          window.__tendril_auto_instance = new Tendril();
-        }
-      });
-    } else {
+    function autoInit() {
       var auto = document.querySelector('[data-tendril]');
       if (auto && !window.__tendril_auto_instance) {
-        window.__tendril_auto_instance = new Tendril();
+        var autoOpts = {};
+        var defAnchor = auto.getAttribute('data-default-anchor');
+        if (defAnchor) autoOpts.defaultAnchor = defAnchor;
+        window.__tendril_auto_instance = new Tendril(autoOpts);
       }
+    }
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', autoInit);
+    } else {
+      autoInit();
     }
   }
 

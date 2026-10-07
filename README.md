@@ -148,6 +148,9 @@ onUnmounted(() => {
 | `ropeSlack` | `number` | `0.42` | Maximum slack fraction when cursor is close to anchor pins (controls catenary sag depth). |
 | `ropeMinSlack` | `number` | `42` | Minimum base droop offset in px so even short cord spans sag organically. |
 | `ropeTensionSensitivity` | `number` | `1.0` | Sensitivity multiplier for rope tightening and loosening (`0.2` = loose/sluggish, `1.0` = standard, `2.5` = hyper-reactive). |
+| `defaultAnchor` | `'off' \| 'multi' \| 'single'` | `'off'` | **New:** Default startup mode. `'off'` (free floating cursor until tapped), `'multi'` (starts immediately anchored in multi-checkpoint weaving), or `'single'` (starts anchored with 1 gliding pin). |
+| `defaultAnchorPos` | `{ x, y } \| null` | `null` | **New:** Optional fixed startup coordinates for the default anchor. If `null`, anchors at the cursor entry position. |
+| `disableOnTouch` | `boolean` | `true` | **New:** Automatically suppresses cursor engine on touchscreens/mobile devices for native touch behavior. |
 | `anchorMode` | `string` | `'multi'` | Anchor mode: `'multi'` (sequential waypoint weaving), `'single'` (1 pin glides on damped spring), or `'off'`. |
 | `tripleTapAnchor` | `boolean` | `true` | Triple-tap to anchor tail and sever falling ropes. |
 | `multiCheckpoints`| `boolean` | `true` | Allows planting multiple sequential stop checkpoints across the screen in `'multi'` mode. |
