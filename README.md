@@ -3,10 +3,14 @@
 > **A production-ready, zero-dependency physics-based cursor engine synthesizing Ricardo Mendieta's Gooey Ink Dynamics and Difference Lens with Motion Bench's Frame-Rate Independent Verlet Kinematics.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Netlify Status](https://img.shields.io/badge/Netlify-Live%20Demo-00C7B7.svg?logo=netlify&logoColor=white)](https://tendril-cursor.netlify.app)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](#)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-3178C6.svg)](#)
 [![Performance](https://img.shields.io/badge/GC%20Allocation-0%20bytes%20per%20click-purple.svg)](#)
 [![Default Palette](https://img.shields.io/badge/Default-Emerald%20Green-10b981.svg)](#)
+
+🎮 **Live Playground**: [https://tendril-cursor.netlify.app](https://tendril-cursor.netlify.app)  
+📦 **GitHub Repo**: [https://github.com/NISHANTTMAURYA/tendril-cursor](https://github.com/NISHANTTMAURYA/tendril-cursor)
 
 ---
 
