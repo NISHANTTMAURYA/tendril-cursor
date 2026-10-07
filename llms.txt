@@ -1,0 +1,106 @@
+# Tendril.js — Liquid Rope & Ink Physics Engine (AI Agent & Developer Guide)
+
+> Machine-readable specification and architecture documentation for LLMs, autonomous coding agents (Claude, ChatGPT, Cursor, Antigravity), and frontend developers.
+
+## Project Summary
+- Name: Tendril.js (also exported as LiquidRopeCursor, TendrilCursor, HybridInkRopeCursor)
+- Description: Zero-dependency 60fps physical cursor engine combining Ricardo Mendieta's SVG gooey fluid dynamics and difference lens with Motion Bench's Verlet kinematics.
+- Live Web Playground: https://nishanttmaurya.github.io/saloni-portfolio/hybrid-cursor-showcase.html
+- Repository: https://github.com/NISHANTTMAURYA/saloni-portfolio
+- Package Directories: `tendril/`, `liquid-rope-cursor/`
+
+## Key Capabilities
+1. Page-Aware Rope Scaling: Uses `usePageLength: true` to dynamically measure `document.documentElement.scrollHeight`, allowing the rope to stretch continuously across thousands of pixels of vertical page scrolling without snapping or premature FIFO popping.
+2. Configurable Offset Buffer: Adds `offsetSize: 6000` (and `ropeLengthOffset: 6000`) on top of the document dimensions for massive multi-screen weaving capacity.
+3. Expressive Catenary Droop: Physical sag parameters (`ropeSlack: 0.42`, `ropeMinSlack: 42`) droop organically when points are close, and pull taut with continuous dynamic tension as distance increases.
+4. Multi-Waypoint Weaving: Triple-tap enters anchor mode; single clicks drop checkpoints (`anchorMode: 'multi'`). Single-anchor follower mode glides on a damped spring (`anchorMode: 'single'`).
+5. Verlet Severed Ropes: Triple-tap severs all checkpoints into independent falling cords with gravity and air drag (`severedRopeGravity: 0.42`).
+6. Difference Lens: Mathematical pixel inversion lens (`mixBlendMode: 'difference'`) renders crisp readable text through the fluid droplet.
+
+## Complete Settings & Options Specification
+
+| Parameter | Type | Default | Unit / Range | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| `color` | string | `#10b981` | CSS Color | Primary cursor head droplet and cord color. |
+| `secondaryColor` | string \| null | null | CSS Color | Secondary tail gradient color (auto-derived if null). |
+| `mixBlendMode` | string | `difference` | `difference` \| `normal` \| `screen` | CSS blend mode: 'difference' (Mendieta lens), 'normal' (solid ink), 'screen' (additive dark-mode glow). |
+| `usePageLength` | boolean | `true` | `true` \| `false` | Dynamically factors in total scrollable page height (`scrollHeight`) to decide rope length. |
+| `pageLengthRatio` | number | `1.15` | 0.5 - 2.5x | Multiplier applied to total document scroll height when calculating rope limits. |
+| `offsetSize` | number | `6000` | 1000 - 15000 px | Extra pixel offset buffer added to physical rope capacity on top of page/screen dimensions. |
+| `ropeLengthOffset` | number | `6000` | 1000 - 15000 px | Alias for offsetSize. |
+| `ropeLength` | number | `0` | px | Explicit rope length in px (0 = auto-calculated from page dimensions + offsetSize). |
+| `ropeSlack` | number | `0.42` | 0.10 - 0.70 | Maximum slack fraction when cursor is close to anchor pins (controls catenary sag depth). |
+| `ropeMinSlack` | number | `42` | px | Minimum baseline droop offset in px so even short cord spans sag organically. |
+| `ropeTensionSensitivity` | number | `1.0` | 0.2 - 2.5x | Developer sensitivity multiplier for rope tightening and loosening. |
+| `strokeWidth` | number | `9` | 4 - 18 px | Base physical SVG stroke width of the central tendon spine (thins with Poisson necking). |
+| `segments` | number | `22` | 10 - 36 | Number of physical joints along the rope cord. |
+| `segTau` | number | `36` | 15 - 80 ms | Frame-rate independent exponential smoothing lag time constant per segment. |
+| `gooeyBlur` | number | `7` | 2 - 14 px | SVG `feGaussianBlur` radius in the `#goo` filter. |
+| `gooeyContrast` | number | `34` | multiplier | Alpha contrast multiplier for SVG gooey threshold. |
+| `gooeyOffset` | number | `-14` | offset | Alpha cutoff offset for the SVG filter. |
+| `headRadius` | number | `7` | px | Leading cursor circle radius. |
+| `tailRadius` | number | `2.2` | px | Slender tail droplet radius. |
+| `idleTimeout` | number | `150` | ms | Stillness delay before harmonic breathing begins. |
+| `idleWobble` | boolean | `true` | boolean | Enables sinusoidal harmonic wave drift when stationary. |
+| `hoverScale` | number | `1.35` | multiplier | Head scale factor when hovering over interactive elements. |
+| `hoverSelector` | string | `a, button, ...` | CSS selector | Selector matching interactive elements for hover effects. |
+| `splashOnClick` | boolean | `true` | boolean | Radial ink burst on click. |
+| `splashCount` | number | `7` | beads | Number of radial burst beads. |
+| `spillOnClick` | boolean | `true` | boolean | Pressurized liquid drops spill on click or mobile touch. |
+| `spillCount` | number | `14` | drops | Number of liquid drops spawned per spill. |
+| `gravity` | number | `0.38` | px/frame² | Gravitational acceleration downward for falling liquid drops. |
+| `dripTrail` | boolean | `true` | boolean | Fast falling drops shed trailing micro-droplets. |
+| `anchorMode` | string | `multi` | `multi` \| `single` \| `off` | Anchor mode: 'multi' (waypoints), 'single' (gliding follow pin), 'off' (disabled). |
+| `tripleTapAnchor` | boolean | `true` | boolean | Triple-tap to anchor tail and sever falling ropes. |
+| `multiCheckpoints` | boolean | `true` | boolean | Allows planting multiple sequential stop checkpoints in 'multi' mode. |
+| `tripleTapMaxInterval` | number | `480` | ms | Maximum milliseconds across 3 taps to trigger anchor/sever. |
+| `severedRopeGravity` | number | `0.42` | 0.15 - 0.95 | Gravitational downward pull for detached falling ropes. |
+| `severedRopeDrag` | number | `0.985` | coefficient | Air resistance for detached falling ropes. |
+| `hideNativeCursor` | boolean | `true` | boolean | Automatically hides native OS mouse cursor on desktop. |
+| `preventTextSelectOnTap` | boolean | `false` | boolean | When false (default), native multi-tap word/paragraph selection works. |
+| `forceTouch` | boolean | `false` | boolean | Force enables touch trails and interactions on touch/tablet devices. |
+
+## Quick Implementation Guide for AI Coding Agents
+
+### Plain HTML Auto-Init
+```html
+<script src="tendril.js" data-tendril></script>
+```
+
+### React / Next.js Component
+```tsx
+'use client';
+import { useEffect, useRef } from 'react';
+import Tendril from './tendril';
+
+export default function CustomCursor() {
+  const cursorRef = useRef(null);
+  useEffect(() => {
+    cursorRef.current = new Tendril({
+      color: '#10b981',
+      secondaryColor: '#06b6d4',
+      mixBlendMode: 'difference',
+      usePageLength: true,
+      offsetSize: 6000,
+      ropeSlack: 0.42,
+      ropeMinSlack: 42,
+      spillOnClick: true,
+      tripleTapAnchor: true,
+      anchorMode: 'multi'
+    });
+    return () => cursorRef.current?.destroy();
+  }, []);
+  return null;
+}
+```
+
+### API Methods
+- `cursor.addCheckpoint(x, y)`: Add checkpoint pin at current cursor or (x, y).
+- `cursor.releaseAllAndDrop()`: Sever cord into Verlet falling physics.
+- `cursor.clearCheckpoints()`: Reset checkpoints without dropping ropes.
+- `cursor.setAnchorMode('multi' | 'single' | 'off')`: Switch anchor behavior.
+- `cursor.spill({ count, speed, gravity })`: Trigger programmatic liquid spill.
+- `cursor.setBlendMode('difference' | 'normal' | 'screen')`: Switch blend mode.
+- `cursor.setColor(primary, secondary)`: Update palette.
+- `cursor.setOptions({ ... })`: Update any settings live.
+- `cursor.destroy()`: Complete cleanup of DOM nodes and event listeners.

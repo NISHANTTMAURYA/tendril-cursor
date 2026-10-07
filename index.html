@@ -1,0 +1,2965 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tendril.js — Liquid Rope &amp; Ink Cursor Engine (Docs &amp; Interactive Playground)</title>
+  <meta name="description" content="Production-ready liquid rope cursor engine. Features 1:1 natural pointer tracking, multi-checkpoint waypoint weaving, severed falling rope physics, text reveal difference lens, mobile phone touch trails, and gravitational liquid spills.">
+  <link rel="alternate" type="text/markdown" href="llms.txt" title="AI Agent LLM Documentation">
+  <link rel="alternate" type="application/json" href="ai-settings.json" title="Machine-Readable Settings Specification">
+
+  <!-- Machine-Readable Schema for AI Agents & Search Engines -->
+  <script type="application/ld+json" id="ai-agent-schema">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Tendril.js",
+    "alternateName": "Liquid Rope & Ink Cursor Physics Engine",
+    "description": "Zero-dependency physical cursor engine combining SVG gooey fluid dynamics, difference lens, and Verlet kinematics.",
+    "url": "https://nishanttmaurya.github.io/saloni-portfolio/hybrid-cursor-showcase.html",
+    "applicationCategory": "DeveloperApplication",
+    "operatingSystem": "All modern browsers",
+    "featureList": [
+      "Page-aware rope length scaling across full scrollable document height",
+      "Configurable extra offset capacity (offsetSize: 6000px)",
+      "Multi-checkpoint waypoint weaving and single-anchor following",
+      "Verlet integration severed falling ropes with gravity and drag",
+      "Ricardo Mendieta difference blend mode text inversion lens",
+      "Gravitational liquid spills and phone touch trails"
+    ]
+  }
+  </script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Asul:wght@400;700&family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      /* LIGHT MODE DEFAULT WITH EMERALD GREEN ACCENT */
+      --bg: #FAF7F0;
+      --bg-card: rgba(255, 255, 255, 0.92);
+      --bg-card-subtle: rgba(0, 0, 0, 0.035);
+      --border-card: rgba(30, 27, 24, 0.12);
+      --text: #1C1917;
+      --text-muted: #57534E;
+      --accent: #10b981;
+      --accent-glow: rgba(16, 185, 129, 0.25);
+      --secondary: #06b6d4;
+      --code-bg: #121318;
+      --font-main: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-display: 'Space Grotesk', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --font-editorial: 'Asul', serif;
+    }
+
+    body.dark-mode {
+      --bg: #0D0D11;
+      --bg-card: rgba(22, 23, 30, 0.92);
+      --bg-card-subtle: rgba(255, 255, 255, 0.04);
+      --border-card: rgba(255, 255, 255, 0.10);
+      --text: #F3F4F6;
+      --text-muted: #9CA3AF;
+      --accent-glow: rgba(16, 185, 129, 0.38);
+      --code-bg: #090A0D;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100%;
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: var(--font-main);
+      overflow-x: hidden;
+      cursor: none; /* Managed by Tendril */
+      transition: background-color 0.35s ease, color 0.35s ease;
+    }
+
+    /* Ambient background grid */
+    .bg-grid {
+      position: fixed;
+      inset: 0;
+      background-image: 
+        radial-gradient(circle at 50% 15%, var(--accent-glow) 0%, transparent 65%),
+        linear-gradient(to right, rgba(0, 0, 0, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.04) 1px, transparent 1px);
+      background-size: 100% 100%, 48px 48px, 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0.9;
+    }
+    body.dark-mode .bg-grid {
+      background-image: 
+        radial-gradient(circle at 50% 15%, var(--accent-glow) 0%, transparent 65%),
+        linear-gradient(to right, rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+    }
+
+    /* Header */
+    header {
+      position: sticky;
+      top: 0;
+      width: 100%;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 5%;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-card);
+      background: rgba(250, 247, 240, 0.88);
+      transition: background 0.35s;
+    }
+    body.dark-mode header {
+      background: rgba(13, 13, 17, 0.88);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-badge {
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: var(--accent-glow);
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      font-weight: 600;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .hud-pill {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 20px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.25s;
+    }
+    .hud-pill.anchored {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+      animation: pulse-anchor 1.2s infinite alternate;
+    }
+    @keyframes pulse-anchor {
+      0% { box-shadow: 0 0 4px var(--accent-glow); }
+      100% { box-shadow: 0 0 18px var(--accent); }
+    }
+
+    .theme-toggle-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .report-nav-btn {
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .report-nav-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    main {
+      position: relative;
+      z-index: 10;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px 90px;
+    }
+
+    /* Hero Section */
+    .hero {
+      min-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 45px 0 20px;
+      position: relative;
+    }
+
+    .hero-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 18px;
+      border-radius: 999px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 20px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+    }
+
+    .hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.6rem, 6.5vw, 5.2rem);
+      line-height: 1.05;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      margin-bottom: 18px;
+      max-width: 950px;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .hero h1 span.accent-text {
+      color: var(--accent);
+      transition: color 0.3s;
+    }
+
+    .hero p.lead {
+      font-size: clamp(1.05rem, 1.8vw, 1.25rem);
+      color: var(--text-muted);
+      max-width: 780px;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    /* Hero Action Buttons */
+    .hero-btn-group {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .action-btn-primary {
+      padding: 15px 30px;
+      border-radius: 12px;
+      background: var(--text);
+      color: var(--bg);
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      border: none;
+      cursor: none;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+      transition: transform 0.2s, background 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .action-btn-primary:hover {
+      transform: translateY(-2px);
+    }
+
+    .action-btn-secondary {
+      padding: 15px 26px;
+      border-radius: 12px;
+      background: var(--bg-card);
+      color: var(--text);
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      border: 1px solid var(--border-card);
+      cursor: none;
+      transition: transform 0.2s, border-color 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .action-btn-secondary:hover {
+      transform: translateY(-2px);
+      border-color: var(--accent);
+    }
+
+    .HoverButton {
+      position: relative;
+      display: inline-block;
+      z-index: 20;
+      padding: 15px 36px;
+      overflow: hidden;
+      border-radius: 12px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--accent);
+      box-shadow: 0 8px 24px var(--accent-glow);
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s;
+      cursor: none;
+    }
+    .HoverButton:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 14px 32px var(--accent-glow);
+    }
+    .HoverButton .bg-slider {
+      pointer-events: none;
+      position: absolute;
+      background-color: var(--accent);
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 130%;
+      display: block;
+      transform: translateX(-115%) skew(-14deg);
+      transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+    .HoverButton:hover .bg-slider {
+      transform: translateX(-10%) skew(-14deg);
+    }
+    .HoverButton span.btn-label {
+      position: relative;
+      font-family: var(--font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--text);
+      z-index: 2;
+      mix-blend-mode: difference;
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Live Multi-Checkpoint Waypoint Banner */
+    .anchor-banner {
+      background: var(--bg-card);
+      border: 1.5px solid var(--accent);
+      border-radius: 18px;
+      padding: 24px 28px;
+      margin-bottom: 50px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-shadow: 0 8px 28px var(--accent-glow);
+    }
+    .banner-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 14px;
+    }
+    .banner-text h4 {
+      font-family: var(--font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .banner-text p {
+      color: var(--text-muted);
+      font-size: 0.94rem;
+    }
+    .banner-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .btn-pill {
+      font-family: var(--font-main);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 8px 16px;
+      border-radius: 10px;
+      cursor: none;
+      border: 1px solid var(--border-card);
+      background: var(--bg-card-subtle);
+      color: var(--text);
+      transition: all 0.2s;
+    }
+    .btn-pill:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+    .btn-pill.danger {
+      color: #ef4444;
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .btn-pill.danger:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+    .banner-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+    }
+    .banner-step {
+      background: var(--bg-card-subtle);
+      padding: 12px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border-card);
+      line-height: 1.5;
+    }
+    .banner-step strong {
+      display: block;
+      color: var(--accent);
+      margin-bottom: 4px;
+      font-family: var(--font-display);
+      font-size: 0.9rem;
+    }
+
+    /* Section Title */
+    .section-title {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .section-title h2 {
+      font-family: var(--font-display);
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .section-title p {
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    /* Text Reveal & Mendieta Inversion Showcase */
+    .text-lens-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 22px;
+      padding: 36px;
+      margin-bottom: 60px;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.05);
+    }
+    .lens-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .lens-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .lens-header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .lens-mode-pills {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      background: var(--bg-card-subtle);
+      padding: 6px;
+      border-radius: 14px;
+      border: 1px solid var(--border-card);
+    }
+    .lens-pill {
+      border: none;
+      background: none;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      cursor: none;
+      transition: all 0.2s;
+    }
+    .lens-pill:hover {
+      color: var(--text);
+    }
+    .lens-pill.active {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--accent-glow);
+    }
+    .lens-pill .pill-tag {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 2px 7px;
+      border-radius: 6px;
+      margin-left: 6px;
+      background: rgba(0, 0, 0, 0.08);
+      color: inherit;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      vertical-align: middle;
+      transition: background 0.2s;
+    }
+    body.dark-mode .lens-pill .pill-tag {
+      background: rgba(255, 255, 255, 0.16);
+    }
+    .lens-pill.active .pill-tag {
+      background: rgba(0, 0, 0, 0.22);
+      color: #fff;
+    }
+
+    .lens-notice-box {
+      margin-bottom: 22px;
+      padding: 14px 18px;
+      border-radius: 14px;
+      background: rgba(16, 185, 129, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.28);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      animation: fadeInNotice 0.25s ease-out;
+    }
+    body.dark-mode .lens-notice-box {
+      background: rgba(16, 185, 129, 0.12);
+      border-color: rgba(16, 185, 129, 0.35);
+    }
+    .lens-notice-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+      min-width: 260px;
+    }
+    .lens-notice-content .notice-icon {
+      font-size: 1.35rem;
+      line-height: 1.2;
+    }
+    .lens-notice-content strong {
+      display: block;
+      color: var(--text);
+      font-size: 0.92rem;
+      margin-bottom: 2px;
+    }
+    .lens-notice-content p {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      margin: 0;
+    }
+    .switch-dark-btn {
+      border: none;
+      background: #18181b;
+      color: #fafafa;
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.84rem;
+      font-weight: 700;
+      cursor: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+      transition: transform 0.15s, background 0.15s;
+      white-space: nowrap;
+    }
+    .switch-dark-btn:hover {
+      transform: translateY(-1px);
+      background: #27272a;
+    }
+    @keyframes fadeInNotice {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .lens-sandbox {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 36px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .sandbox-headline {
+      font-family: var(--font-display);
+      font-size: clamp(2rem, 4.5vw, 3.4rem);
+      font-weight: 800;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+    }
+    .sandbox-paragraph {
+      font-size: 1.1rem;
+      line-height: 1.7;
+      color: var(--text);
+      max-width: 900px;
+    }
+    .sandbox-quote-card {
+      background: #18181b;
+      color: #fafafa;
+      padding: 24px 28px;
+      border-radius: 14px;
+      border-left: 4px solid var(--accent);
+      font-family: var(--font-editorial);
+      font-size: 1.35rem;
+      line-height: 1.5;
+    }
+    .sandbox-quote-card span.author {
+      display: block;
+      margin-top: 10px;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: #a1a1aa;
+    }
+    .sandbox-tip {
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      background: var(--bg-card);
+      padding: 10px 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border-card);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Interactive Modes Section */
+    .modes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 20px;
+      margin-bottom: 60px;
+    }
+    .mode-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+      padding: 26px 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      cursor: none;
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.25s, box-shadow 0.25s;
+    }
+    .mode-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--accent);
+      box-shadow: 0 16px 36px var(--accent-glow);
+    }
+    .mode-icon {
+      font-size: 1.8rem;
+      margin-bottom: 12px;
+    }
+    .mode-card h3 {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      margin-bottom: 8px;
+    }
+    .mode-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+      margin-bottom: 18px;
+    }
+    .mode-trigger {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    /* Color Studio & Realtime Physics Deck */
+    .studio-panel {
+      width: 100%;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 22px;
+      padding: 32px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.06);
+      margin-bottom: 60px;
+    }
+    .studio-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    .studio-title h2 {
+      font-family: var(--font-display);
+      font-size: 1.55rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .studio-title p {
+      color: var(--text-muted);
+      font-size: 0.92rem;
+    }
+
+    .color-picker-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      background: var(--bg-card-subtle);
+      padding: 16px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--border-card);
+      margin-bottom: 28px;
+    }
+    .picker-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .picker-group label {
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .custom-color-input {
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      appearance: none;
+      width: 44px;
+      height: 44px;
+      border: 2px solid var(--border-card);
+      border-radius: 12px;
+      background: none;
+      cursor: none;
+      padding: 0;
+      overflow: hidden;
+      transition: transform 0.15s;
+    }
+    .custom-color-input:hover {
+      transform: scale(1.08);
+      border-color: var(--accent);
+    }
+    .custom-color-input::-webkit-color-swatch-wrapper { padding: 0; }
+    .custom-color-input::-webkit-color-swatch { border: none; border-radius: 10px; }
+
+    .hex-text-input {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border-card);
+      background: var(--bg);
+      color: var(--text);
+      width: 110px;
+      text-transform: uppercase;
+      cursor: none;
+    }
+
+    .swatch-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .color-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      cursor: none;
+      transition: transform 0.2s;
+    }
+    .color-swatch:hover {
+      transform: scale(1.25);
+    }
+
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 20px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border-card);
+    }
+    .slider-card {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      border-radius: 14px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .slider-val {
+      font-family: var(--font-mono);
+      color: var(--accent);
+      font-size: 0.82rem;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.12);
+      outline: none;
+      cursor: none;
+    }
+    body.dark-mode input[type="range"] {
+      background: rgba(255, 255, 255, 0.15);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    /* Studio Header Actions & Info Buttons */
+    .studio-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .studio-pill-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-family: var(--font-main);
+      font-size: 0.82rem;
+      font-weight: 600;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      color: var(--text);
+      cursor: none;
+      transition: all 0.2s ease;
+    }
+    .studio-pill-btn:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    .studio-pill-btn.ai-btn {
+      border-color: rgba(6, 182, 212, 0.35);
+      background: rgba(6, 182, 212, 0.08);
+      color: #0284c7;
+    }
+    body.dark-mode .studio-pill-btn.ai-btn {
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .studio-pill-btn.ai-btn:hover {
+      background: #0284c7;
+      color: #fff;
+      border-color: #0284c7;
+    }
+    .slider-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .setting-info-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.05);
+      border: 1px solid var(--border-card);
+      font-size: 0.70rem;
+      cursor: none;
+      color: var(--text-muted);
+      transition: all 0.18s ease;
+      line-height: 1;
+      padding: 0;
+    }
+    body.dark-mode .setting-info-btn {
+      background: rgba(255, 255, 255, 0.08);
+      color: #9CA3AF;
+    }
+    .setting-info-btn:hover, .setting-info-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+      transform: scale(1.15);
+    }
+    .setting-doc-drawer {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 12px;
+      background: rgba(0, 0, 0, 0.035);
+      border-left: 3px solid var(--accent);
+      border-radius: 8px;
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      animation: docSlideDown 0.18s ease-out;
+    }
+    @keyframes docSlideDown {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    body.dark-mode .setting-doc-drawer {
+      background: rgba(255, 255, 255, 0.05);
+    }
+    .setting-doc-drawer.open {
+      display: block;
+    }
+    .doc-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .api-badge {
+      display: inline-block;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      background: rgba(16, 185, 129, 0.12);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+    .doc-default {
+      font-family: var(--font-mono);
+      font-size: 0.70rem;
+      color: var(--text-muted);
+    }
+    .doc-desc {
+      margin: 0;
+      color: var(--text);
+      opacity: 0.88;
+    }
+
+    /* AI Agent Modal & JSON Display */
+    .ai-manifest-modal {
+      max-width: 720px;
+      width: 100%;
+    }
+    .ai-json-container {
+      background: var(--code-bg);
+      color: #e5e7eb;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.5;
+      border-radius: 12px;
+      padding: 18px;
+      max-height: 380px;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      user-select: text;
+      white-space: pre;
+    }
+
+    /* Developer Support & Bug Report Card */
+    .bug-report-section {
+      background: var(--bg-card);
+      border: 1.5px solid var(--border-card);
+      border-radius: 22px;
+      padding: 36px;
+      margin-bottom: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+    }
+    .bug-info {
+      max-width: 650px;
+    }
+    .bug-info h3 {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .bug-info p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+    .bug-email-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 8px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      color: var(--accent);
+    }
+    .bug-btn-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .btn-mail-report {
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 14px 26px;
+      border-radius: 12px;
+      border: none;
+      cursor: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-mail-report:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px var(--accent-glow);
+    }
+
+    /* Integration Tabs Section */
+    .integration-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 22px;
+      padding: 36px;
+      margin-bottom: 60px;
+    }
+    .int-header {
+      margin-bottom: 24px;
+    }
+    .int-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .int-header p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+    }
+
+    .tabs-bar {
+      display: flex;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-card);
+      margin-bottom: 20px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 10px;
+      font-family: var(--font-main);
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: none;
+      transition: all 0.2s;
+    }
+    .tab-btn:hover {
+      color: var(--text);
+    }
+    .tab-btn.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .code-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border-card);
+      border-radius: 16px;
+      overflow: hidden;
+      color: #E5E7EB;
+    }
+    .code-header {
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .code-header span {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      color: #9CA3AF;
+    }
+    .code-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .copy-btn {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: none;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .copy-btn:hover {
+      transform: translateY(-1px);
+    }
+    .copy-prompt-btn {
+      background: rgba(255, 255, 255, 0.10);
+      color: #E5E7EB;
+      border: 1px solid rgba(255, 255, 255, 0.20);
+      padding: 7px 16px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: none;
+      transition: all 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .copy-prompt-btn:hover {
+      background: rgba(255, 255, 255, 0.20);
+      border-color: #fff;
+      color: #fff;
+      transform: translateY(-1px);
+    }
+    pre {
+      padding: 22px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    /* API Options Table */
+    .table-section {
+      margin-bottom: 60px;
+    }
+    .table-wrapper {
+      overflow-x: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 18px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.9rem;
+    }
+    th, td {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border-card);
+    }
+    th {
+      font-family: var(--font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      background: var(--bg-card-subtle);
+    }
+    td code {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: var(--bg-card-subtle);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--accent);
+    }
+
+    /* Floating Bug Report Pill */
+    .float-report-btn {
+      position: fixed;
+      bottom: 22px;
+      right: 22px;
+      z-index: 999;
+      background: var(--bg-card);
+      border: 1.5px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 18px;
+      border-radius: 30px;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      font-weight: 700;
+      box-shadow: 0 6px 20px var(--accent-glow);
+      cursor: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, background 0.2s, color 0.2s;
+    }
+    .float-report-btn:hover {
+      transform: translateY(-3px) scale(1.03);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Interactive Bug Report & Diagnostics Modal */
+    .bug-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(6px);
+      -webkit-backdrop-filter: blur(6px);
+      z-index: 10000000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    .bug-modal {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: 20px;
+      max-width: 540px;
+      width: 100%;
+      padding: 28px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      position: relative;
+    }
+    .bug-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .bug-modal-header h3 {
+      font-family: var(--font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+    }
+    .bug-modal-close {
+      border: none;
+      background: var(--bg-card-subtle);
+      color: var(--text-muted);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      font-size: 1.1rem;
+      cursor: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+    .bug-modal-close:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .bug-modal-body {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+    .bug-diag-box {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-card);
+      border-radius: 12px;
+      padding: 12px 14px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text);
+      word-break: break-all;
+      user-select: all;
+    }
+    .bug-modal-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .bug-modal-btn {
+      flex: 1;
+      padding: 12px 16px;
+      border-radius: 12px;
+      font-family: var(--font-main);
+      font-weight: 700;
+      font-size: 0.88rem;
+      cursor: none;
+      border: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+    .bug-modal-btn.primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 4px 16px var(--accent-glow);
+    }
+    .bug-modal-btn.primary:hover {
+      transform: translateY(-2px);
+    }
+    .bug-modal-btn.secondary {
+      background: var(--bg-card-subtle);
+      color: var(--text);
+      border: 1px solid var(--border-card);
+    }
+    .bug-modal-btn.secondary:hover {
+      background: var(--border-card);
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    footer {
+      border-top: 1px solid var(--border-card);
+      padding: 40px 5%;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      align-items: center;
+    }
+    footer a {
+      color: var(--accent);
+      text-decoration: none;
+      cursor: none;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="bg-grid"></div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <span>TENDRIL.JS</span>
+      <span class="brand-badge">v1.1.0 STABLE</span>
+    </div>
+
+    <div class="nav-actions">
+      <div class="hud-pill" id="anchorHud">
+        <span id="hudDot">🟢</span>
+        <span id="hudText">FREE ROPE</span>
+      </div>
+
+      <button class="theme-toggle-btn" id="themeToggleBtn" data-cursor-hover="true">
+        <span id="themeIcon">🌙</span>
+        <span id="themeLabel">Dark</span>
+      </button>
+
+      <button class="report-nav-btn" onclick="triggerBugReport()" data-cursor-hover="true">
+        <span>🐞</span>
+        <span>Report Issue</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero -->
+    <section class="hero">
+      <div class="hero-tag">
+        <span>💧 Liquid Rope, Waypoint Weaving &amp; Ink Lens Engine</span>
+      </div>
+
+      <h1>
+        Organic Fluid Physics for <br>
+        <span class="accent-text" id="heroAccentText">Modern Web Interfaces</span>
+      </h1>
+
+      <p class="lead">
+        A zero-dependency physics engine combining Ricardo Mendieta's SVG gooey ink dynamics and text-inverting lens with Motion Bench's frame-rate independent kinematics. Features 1:1 natural pointer tracking, multi-checkpoint waypoint weaving, phone touch trails, and severed falling ropes.
+      </p>
+
+      <!-- Action Buttons -->
+      <div class="hero-btn-group">
+        <button class="action-btn-primary" id="anchorToggleBtn" onclick="triggerAnchorToggle()" data-cursor-hover="true">
+          <span id="anchorBtnIcon">⚓</span>
+          <span id="anchorBtnLabel">Drop Anchor (Triple-Tap)</span>
+        </button>
+
+        <button class="action-btn-secondary" onclick="triggerManualSpill()" data-cursor-hover="true">
+          <span>💧 Spill Liquid</span>
+        </button>
+
+        <button id="mainHoverBtn" class="HoverButton" data-cursor-hover="true">
+          <div class="bg-slider"></div>
+          <span class="btn-label">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            HOVER ME
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <!-- 2-Stage Triple-Tap Guidance Banner -->
+    <div class="anchor-banner" id="guideBanner">
+      <div class="banner-top">
+        <div class="banner-text">
+          <h4 id="guideTitle">⚓ 2-Stage Triple-Tap Anchor &amp; Falling Physics Rope:</h4>
+          <p id="guideDesc">Triple-click anywhere to pin the tail at that spot. Stretch the cord across the page, then triple-click again to sever the cord into an independent falling rope!</p>
+        </div>
+        <div class="banner-actions">
+          <!-- Anchor Mode Selector Pills -->
+          <div class="lens-mode-pills" id="anchorModeSelector" data-no-anchor="true">
+            <button type="button" class="lens-pill active" id="modePillMulti" onclick="selectAnchorMode('multi')" data-cursor-hover="true">📍 Multi Anchor</button>
+            <button type="button" class="lens-pill" id="modePillSingle" onclick="selectAnchorMode('single')" data-cursor-hover="true">🎯 One Anchor (Follows)</button>
+            <button type="button" class="lens-pill" id="modePillOff" onclick="selectAnchorMode('off')" data-cursor-hover="true">🚫 Off</button>
+          </div>
+          <button class="btn-pill" id="bannerAnchorBtn" onclick="triggerAnchorToggle()" data-cursor-hover="true">⚓ Drop Anchor Here</button>
+          <button class="btn-pill" id="bannerSeverBtn" onclick="triggerSeverRope()" data-cursor-hover="true" style="display:none;">✂️ Sever &amp; Drop Rope</button>
+        </div>
+      </div>
+      <div class="banner-steps">
+        <div class="banner-step">
+          <strong>📍 Multi Anchor Weaving Mode</strong>
+          Triple-tap (or click "Drop Anchor") to start. Each subsequent click plants a new waypoint. Rassi droops naturally like water when loose, and pulls tight when stretched!
+        </div>
+        <div class="banner-step">
+          <strong>🎯 One Anchor Mode (Follows)</strong>
+          Only 1 anchor pin is maintained. Triple-tap to drop anchor; clicking anywhere new smoothly glides the anchor to the new spot without ever breaking the cord!
+        </div>
+        <div class="banner-step">
+          <strong>📜 Scroll-Locked Physics</strong>
+          Scroll up or down freely! All planted anchors, connecting spans, and severed falling ropes stay locked in place relative to page content instead of floating statically.
+        </div>
+        <div class="banner-step">
+          <strong>📱 Mobile Touch &amp; Spills</strong>
+          Touch and drag across the screen to draw the liquid rope trail; tap anywhere to trigger pressurized liquid splashes and cascading gravitational spills!
+        </div>
+      </div>
+    </div>
+
+    <!-- The Liquid Lens & Text Inversion Showcase (Mendieta's Effect) -->
+    <section class="text-lens-section">
+      <div class="lens-header">
+        <div>
+          <h2>The Liquid Lens: Where Text Shines Through</h2>
+          <p>Ricardo Mendieta's iconic ink effect where typography inverts right inside the droplet</p>
+        </div>
+
+        <div class="lens-mode-pills">
+          <button class="lens-pill active" id="pillDiff" onclick="applyBlendMode('difference')" data-cursor-hover="true">🔍 Text Reveal (Difference)</button>
+          <button class="lens-pill" id="pillNormal" onclick="applyBlendMode('normal')" data-cursor-hover="true">🩸 Solid Liquid (Normal)</button>
+          <button class="lens-pill" id="pillScreen" onclick="applyBlendMode('screen')" data-cursor-hover="true">✨ Luminous Glow (Screen) <span class="pill-tag">🌙 Best in Dark Mode</span></button>
+        </div>
+      </div>
+
+      <div id="screenNotice" class="lens-notice-box" style="display: none;">
+        <div class="lens-notice-content">
+          <span class="notice-icon">🌙</span>
+          <div>
+            <strong>Dark Mode Recommended for Screen Blend Mode</strong>
+            <p>Luminous Glow uses additive lighting (<code>mix-blend-mode: screen</code>). It creates an intense electric cyber glow against dark surfaces, but mathematically dissolves into white against light backgrounds.</p>
+          </div>
+        </div>
+        <button type="button" class="switch-dark-btn" onclick="toggleTheme(true)" data-cursor-hover="true">
+          <span>Switch to Dark Mode 🌙</span>
+        </button>
+      </div>
+
+      <div class="lens-sandbox">
+        <h3 class="sandbox-headline">
+          MOVE YOUR CURSOR ACROSS THIS TYPOGRAPHY
+        </h3>
+        <p class="sandbox-paragraph">
+          Notice how the letters invert and remain vividly readable right through the liquid ink! In <strong>Difference mode</strong>, the droplet layer calculates <code>abs(pixel - cursorColor)</code> for high-contrast typography reveal. In <strong>Normal mode</strong>, it renders as solid viscous ink. In <strong>Screen mode</strong>, additive lighting produces an electric luminous glow — <em>best viewed in Dark Mode</em> because additive blending dissolves against light/white surfaces.
+        </p>
+
+        <div class="sandbox-quote-card">
+          “Design is not just what it looks like and feels like. Design is how it responds when touched.”
+          <span class="author">— Test hovering over this dark card to see complementary color inversion</span>
+        </div>
+
+        <div class="sandbox-tip">
+          <span>💡</span>
+          <span><strong>Native Text Selection Supported:</strong> Double-clicking or triple-tapping selects words and paragraphs naturally as expected by users, while rapid pointer movements continue drawing the liquid rope!</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Four Core Interactive Modes -->
+    <section>
+      <div class="section-title">
+        <h2>Interactive Physics Modes</h2>
+        <p>Click any card below to test each mode live on screen</p>
+      </div>
+
+      <div class="modes-grid">
+        <div class="mode-card" data-cursor-hover="true" onclick="testMode(1)">
+          <div>
+            <div class="mode-icon">🧵</div>
+            <h3>Free Rope Kinematics</h3>
+            <p>Free-flowing liquid rope trailing pointer/touch with frame-rate independent exponential smoothing.</p>
+          </div>
+          <div class="mode-trigger">Test Free Mode &rarr;</div>
+        </div>
+
+        <div class="mode-card" data-cursor-hover="true" onclick="testMode(2)">
+          <div>
+            <div class="mode-icon">📍</div>
+            <h3>Multi-Anchor Weaving</h3>
+            <p>Plant multiple stop pins across the screen. Water-like droop when loose, tightens when stretched.</p>
+          </div>
+          <div class="mode-trigger">Test Multi Anchor &rarr;</div>
+        </div>
+
+        <div class="mode-card" data-cursor-hover="true" onclick="testMode(5)">
+          <div>
+            <div class="mode-icon">🎯</div>
+            <h3>One Anchor (Follows)</h3>
+            <p>Only 1 pin allowed. When you click anywhere new, the anchor smoothly follows without breaking!</p>
+          </div>
+          <div class="mode-trigger">Test One Anchor &rarr;</div>
+        </div>
+
+        <div class="mode-card" data-cursor-hover="true" onclick="testMode(4)">
+          <div>
+            <div class="mode-icon">💧</div>
+            <h3>Gravitational Spills</h3>
+            <p>Pointer taps erupt heavy liquid drops upward that cascade down with real gravity and shedding trails.</p>
+          </div>
+          <div class="mode-trigger">Click to Spill Drops &rarr;</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Color Studio & Sliders -->
+    <section class="studio-panel">
+      <div class="studio-header">
+        <div class="studio-title">
+          <h2>Color Studio &amp; Realtime Physics Deck</h2>
+          <p>Pick any CSS color and adjust tension, blur, gravity, and blend modes live</p>
+        </div>
+        <div class="studio-actions">
+          <button type="button" class="studio-pill-btn" id="btnToggleAllInfo" onclick="toggleAllSettingsInfo()" title="Toggle developer documentation for all settings" data-cursor-hover="true">
+            <span>ℹ️</span>
+            <span id="btnToggleAllInfoText">Developer Info</span>
+          </button>
+          <button type="button" class="studio-pill-btn ai-btn" onclick="openAiManifestModal()" title="View machine-readable specification for AI agents" data-cursor-hover="true">
+            <span>🤖</span>
+            <span>AI Agent Settings (JSON)</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Color Bar -->
+      <div class="color-picker-bar">
+        <div class="picker-group">
+          <label for="primaryColor">Primary Liquid:</label>
+          <input type="color" id="primaryColor" class="custom-color-input" value="#10b981" data-cursor-hover="true">
+          <input type="text" id="primaryHex" class="hex-text-input" value="#10B981" maxlength="7">
+        </div>
+
+        <div class="picker-group">
+          <label for="tailColor">Tail Gradient:</label>
+          <input type="color" id="tailColor" class="custom-color-input" value="#06b6d4" data-cursor-hover="true">
+        </div>
+
+        <!-- Curated Swatches -->
+        <div class="swatch-group">
+          <button class="color-swatch" style="background:#10b981;" onclick="applyColor('#10b981', '#06b6d4')" title="Emerald Green (Default)"></button>
+          <button class="color-swatch" style="background:#ee3d3d;" onclick="applyColor('#ee3d3d', '#f43f5e')" title="Crimson"></button>
+          <button class="color-swatch" style="background:#7c5cff;" onclick="applyColor('#7c5cff', '#38bdf8')" title="Cyber Violet"></button>
+          <button class="color-swatch" style="background:#f59e0b;" onclick="applyColor('#f59e0b', '#f43f5e')" title="Amber"></button>
+          <button class="color-swatch" style="background:#0284c7;" onclick="applyColor('#0284c7', '#38bdf8')" title="Ocean Blue"></button>
+          <button class="color-swatch" style="background:#ec4899;" onclick="applyColor('#ec4899', '#f43f5e')" title="Magenta"></button>
+          <button class="color-swatch" style="background:#18181b;" onclick="applyColor('#18181b', '#3f3f46')" title="Obsidian"></button>
+        </div>
+      </div>
+
+      <!-- Sliders with Developer Info Drawers -->
+      <div class="sliders-grid">
+        <div class="slider-card" data-setting="segTau">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Rope Tension (Lag)</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-segTau" onclick="toggleSettingInfo('segTau')" title="Click for developer info on segTau" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-tau">36 ms</span>
+          </div>
+          <input type="range" id="slider-tau" min="15" max="80" value="36" aria-describedby="doc-segTau">
+          <div class="setting-doc-drawer" id="doc-segTau">
+            <div class="doc-meta">
+              <span class="api-badge"><code>segTau</code> : number (ms)</span>
+              <span class="doc-default">Default: 36 · Range: 15–80ms</span>
+            </div>
+            <p class="doc-desc">Frame-rate independent exponential smoothing lag time constant per segment. Lower (15ms) = tight, snappy cursor follow; Higher (80ms) = loose floating trailing cord.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="ropeTensionSensitivity">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Tension Sensitivity</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-ropeTensionSensitivity" onclick="toggleSettingInfo('ropeTensionSensitivity')" title="Click for developer info on ropeTensionSensitivity" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-sens">1.0x</span>
+          </div>
+          <input type="range" id="slider-sens" min="0.2" max="2.5" step="0.1" value="1.0" aria-describedby="doc-ropeTensionSensitivity">
+          <div class="setting-doc-drawer" id="doc-ropeTensionSensitivity">
+            <div class="doc-meta">
+              <span class="api-badge"><code>ropeTensionSensitivity</code> : number</span>
+              <span class="doc-default">Default: 1.0 · Range: 0.2–2.5x</span>
+            </div>
+            <p class="doc-desc">Multiplier for dynamic tension build-up when cursor stretches away from anchor pins. 2.5x snaps spans taut rapidly; 0.2x keeps the cord relaxed and loose.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="ropeSlack">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Slack / Water Sag</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-ropeSlack" onclick="toggleSettingInfo('ropeSlack')" title="Click for developer info on ropeSlack" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-slack">0.42</span>
+          </div>
+          <input type="range" id="slider-slack" min="0.10" max="0.70" step="0.05" value="0.42" aria-describedby="doc-ropeSlack">
+          <div class="setting-doc-drawer" id="doc-ropeSlack">
+            <div class="doc-meta">
+              <span class="api-badge"><code>ropeSlack</code> : number (fraction)</span>
+              <span class="doc-default">Default: 0.42 · Range: 0.10–0.70</span>
+            </div>
+            <p class="doc-desc">Maximum slack fraction when cursor is close to anchor pins. Governs catenary sag depth and gravitational water drooping.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="strokeWidth">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Tendon Thickness</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-strokeWidth" onclick="toggleSettingInfo('strokeWidth')" title="Click for developer info on strokeWidth" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-width">9 px</span>
+          </div>
+          <input type="range" id="slider-width" min="4" max="18" step="1" value="9" aria-describedby="doc-strokeWidth">
+          <div class="setting-doc-drawer" id="doc-strokeWidth">
+            <div class="doc-meta">
+              <span class="api-badge"><code>strokeWidth</code> : number (px)</span>
+              <span class="doc-default">Default: 9 · Range: 4–18px</span>
+            </div>
+            <p class="doc-desc">Base physical SVG stroke width of the central tendon spine. Features Poisson necking (thins down organically as cord stretches over long spans).</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="gooeyBlur">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Gooey Viscosity (Blur)</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-gooeyBlur" onclick="toggleSettingInfo('gooeyBlur')" title="Click for developer info on gooeyBlur" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-blur">7 px</span>
+          </div>
+          <input type="range" id="slider-blur" min="2" max="14" value="7" aria-describedby="doc-gooeyBlur">
+          <div class="setting-doc-drawer" id="doc-gooeyBlur">
+            <div class="doc-meta">
+              <span class="api-badge"><code>gooeyBlur</code> : number (px)</span>
+              <span class="doc-default">Default: 7 · Range: 2–14px</span>
+            </div>
+            <p class="doc-desc">SVG feGaussianBlur radius in the #goo filter. Merged with high alpha contrast (gooeyContrast: 34) to fuse vertebrae into organic liquid rubber surface tension.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="severedRopeGravity">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Severed Rope Gravity</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-severedRopeGravity" onclick="toggleSettingInfo('severedRopeGravity')" title="Click for developer info on severedRopeGravity" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-grav">0.42</span>
+          </div>
+          <input type="range" id="slider-grav" min="0.15" max="0.95" step="0.05" value="0.42" aria-describedby="doc-severedRopeGravity">
+          <div class="setting-doc-drawer" id="doc-severedRopeGravity">
+            <div class="doc-meta">
+              <span class="api-badge"><code>severedRopeGravity</code> : number</span>
+              <span class="doc-default">Default: 0.42 · Range: 0.15–0.95</span>
+            </div>
+            <p class="doc-desc">Downward gravitational acceleration applied to joints of severed falling ropes during Verlet integration physics simulation.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="spillCount">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Spill Drops Count</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-spillCount" onclick="toggleSettingInfo('spillCount')" title="Click for developer info on spillCount" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-spill">16 drops</span>
+          </div>
+          <input type="range" id="slider-spill" min="6" max="36" value="16" aria-describedby="doc-spillCount">
+          <div class="setting-doc-drawer" id="doc-spillCount">
+            <div class="doc-meta">
+              <span class="api-badge"><code>spillCount</code> : number</span>
+              <span class="doc-default">Default: 16 · Range: 6–36 drops</span>
+            </div>
+            <p class="doc-desc">Number of viscous liquid drops erupted per pointer click or mobile touch tap. Drops arc upward with velocity and cascade downward under gravity.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="offsetSize">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Rope Offset Capacity</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-offsetSize" onclick="toggleSettingInfo('offsetSize')" title="Click for developer info on offsetSize" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-offset">6000 px</span>
+          </div>
+          <input type="range" id="slider-offset" min="1000" max="15000" step="500" value="6000" aria-describedby="doc-offsetSize">
+          <div class="setting-doc-drawer" id="doc-offsetSize">
+            <div class="doc-meta">
+              <span class="api-badge"><code>offsetSize</code> : number (px)</span>
+              <span class="doc-default">Default: 6000 · Range: 1000–15000px</span>
+            </div>
+            <p class="doc-desc">Extra pixel offset buffer added to physical rope capacity on top of page/screen dimensions. Allows extensive weaving down tall pages before FIFO limits pop older pins.</p>
+          </div>
+        </div>
+
+        <div class="slider-card" data-setting="pageLengthRatio">
+          <div class="slider-header">
+            <div class="slider-title-wrap">
+              <span>Page Length Scale</span>
+              <button type="button" class="setting-info-btn" id="btnInfo-pageLengthRatio" onclick="toggleSettingInfo('pageLengthRatio')" title="Click for developer info on pageLengthRatio" data-cursor-hover="true">ℹ️</button>
+            </div>
+            <span class="slider-val" id="val-pagelen">1.15x page</span>
+          </div>
+          <input type="range" id="slider-pagelen" min="0.5" max="2.5" step="0.1" value="1.15" aria-describedby="doc-pageLengthRatio">
+          <div class="setting-doc-drawer" id="doc-pageLengthRatio">
+            <div class="doc-meta">
+              <span class="api-badge"><code>pageLengthRatio</code> : number</span>
+              <span class="doc-default">Default: 1.15 · Range: 0.5–2.5x</span>
+            </div>
+            <p class="doc-desc">Multiplier applied to total document scroll height (document.documentElement.scrollHeight). Allows the rope to dynamically stretch across the entire scrollable page height without breaking.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Developer Support & Bug Reporting Card -->
+    <section class="bug-report-section">
+      <div class="bug-info">
+        <h3>
+          <span>🐞</span>
+          <span>Found an Issue or Need Integration Help?</span>
+        </h3>
+        <p>
+          Tendril is designed for high reliability. If you encounter any bugs, edge-case conflicts, or need assistance integrating into your stack, send a report directly. We respond promptly.
+        </p>
+        <div class="bug-email-badge">
+          <span>Direct Contact:</span>
+          <strong>mauryanishant2005@gmail.com</strong>
+        </div>
+      </div>
+
+      <div class="bug-btn-group">
+        <button class="btn-mail-report" onclick="triggerBugReport()" data-cursor-hover="true">
+          <span>📧</span>
+          <span>Report Issue via Email</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Integration Code Section -->
+    <section class="integration-section">
+      <div class="int-header">
+        <h2>How to Integrate Into Any Website</h2>
+        <p>Zero dependencies. Works seamlessly with plain HTML, React, Next.js, Vue, or Webflow. Click <strong>Copy AI Prompt</strong> to instantly prompt ChatGPT, Claude, or Cursor!</p>
+      </div>
+
+      <div class="tabs-bar">
+        <button class="tab-btn active" onclick="switchTab('html')">1-Line Zero Code (HTML)</button>
+        <button class="tab-btn" onclick="switchTab('js')">Vanilla JavaScript</button>
+        <button class="tab-btn" onclick="switchTab('react')">React / Next.js</button>
+        <button class="tab-btn" onclick="switchTab('vue')">Vue 3 / Vite</button>
+        <button class="tab-btn" onclick="switchTab('webflow')">Webflow / Shopify</button>
+      </div>
+
+      <div class="code-box">
+        <div class="code-header">
+          <span id="tabLanguageLabel">Plain HTML (data-tendril auto-init)</span>
+          <div class="code-actions-group">
+            <button class="copy-prompt-btn" onclick="copyAiPrompt()" data-cursor-hover="true">
+              <span>🤖</span>
+              <span>Copy AI Prompt</span>
+            </button>
+            <button class="copy-btn" onclick="copyActiveCode()" data-cursor-hover="true">Copy Code</button>
+          </div>
+        </div>
+        <pre><code id="activeCodeSnippet"></code></pre>
+      </div>
+    </section>
+
+    <!-- API Reference Table -->
+    <section class="table-section">
+      <div class="section-title">
+        <h2>Configuration Options Reference</h2>
+        <p>Complete options table supported by the Tendril constructor</p>
+      </div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Option / Method</th>
+              <th>Type</th>
+              <th>Default</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>color</code></td>
+              <td>String</td>
+              <td><code>'#10b981'</code></td>
+              <td>Primary cursor head and rope color (Emerald Green default).</td>
+            </tr>
+            <tr>
+              <td><code>secondaryColor</code></td>
+              <td>String</td>
+              <td><code>'#06b6d4'</code></td>
+              <td>Secondary tail gradient color (Cyan default).</td>
+            </tr>
+            <tr>
+              <td><code>mixBlendMode</code></td>
+              <td>String</td>
+              <td><code>'difference'</code></td>
+              <td>Blend mode: <code>'difference'</code> (Mendieta text-reveal lens), <code>'normal'</code> (solid ink), <code>'screen'</code> (additive luminous glow — <strong>best used in Dark Mode</strong>).</td>
+            </tr>
+            <tr>
+              <td><code>anchorMode</code></td>
+              <td>String</td>
+              <td><code>'multi'</code></td>
+              <td>Anchor interaction mode: <code>'multi'</code> (sequential waypoint weaving), <code>'single'</code> (1 anchor pin only; old anchor smoothly follows new click), or <code>'off'</code> (disabled).</td>
+            </tr>
+            <tr>
+              <td><code>multiCheckpoints</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Allows planting multiple sequential stop checkpoints across the screen in <code>'multi'</code> mode.</td>
+            </tr>
+            <tr>
+              <td><code>tripleTapAnchor</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Triple-tap to drop anchor and release all into severed falling rope.</td>
+            </tr>
+            <tr>
+              <td><code>preventTextSelectOnTap</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Automatically disables text/word highlighting during rapid multi-taps and anchoring so text doesn't turn blue.</td>
+            </tr>
+            <tr>
+              <td><code>usePageLength</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Dynamically factors the entire scrollable page height (<code>scrollHeight</code>) into maximum rope capacity, allowing continuous stretching down tall pages.</td>
+            </tr>
+            <tr>
+              <td><code>offsetSize</code></td>
+              <td>Number</td>
+              <td><code>6000</code></td>
+              <td>Extra pixel offset capacity added to the rope length to allow continuous weaving across multiple screen journeys.</td>
+            </tr>
+            <tr>
+              <td><code>ropeLengthOffset</code></td>
+              <td>Number</td>
+              <td><code>6000</code></td>
+              <td>Extra pixel offset capacity added on top of screen/page diagonal.</td>
+            </tr>
+            <tr>
+              <td><code>pageLengthRatio</code></td>
+              <td>Number</td>
+              <td><code>1.15</code></td>
+              <td>Multiplier factor applied to scrollable page length when calculating rope limits.</td>
+            </tr>
+            <tr>
+              <td><code>ropeSlack</code></td>
+              <td>Number</td>
+              <td><code>0.42</code></td>
+              <td>Maximum slack fraction when cursor is close to anchor pins (controls catenary sag depth).</td>
+            </tr>
+            <tr>
+              <td><code>ropeMinSlack</code></td>
+              <td>Number</td>
+              <td><code>42</code></td>
+              <td>Minimum baseline droop offset in px so short cord spans still sag organically.</td>
+            </tr>
+            <tr>
+              <td><code>ropeTensionSensitivity</code></td>
+              <td>Number</td>
+              <td><code>1.0</code></td>
+              <td>Developer sensitivity multiplier for rope tightening and loosening (<code>0.2</code> = loose/sluggish, <code>1.0</code> = standard, <code>2.5</code> = hyper-reactive).</td>
+            </tr>
+            <tr>
+              <td><code>severedRopeGravity</code></td>
+              <td>Number</td>
+              <td><code>0.42</code></td>
+              <td>Downward gravitational acceleration for detached falling ropes.</td>
+            </tr>
+            <tr>
+              <td><code>spillOnClick</code></td>
+              <td>Boolean</td>
+              <td><code>true</code></td>
+              <td>Pressurized liquid erupts and cascades down on pointer clicks or touch taps.</td>
+            </tr>
+            <tr>
+              <td><code>spillCount</code></td>
+              <td>Number</td>
+              <td><code>14</code></td>
+              <td>Number of liquid drops spawned per spill.</td>
+            </tr>
+            <tr>
+              <td><code>addCheckpoint(x, y)</code></td>
+              <td>Method</td>
+              <td>—</td>
+              <td>Plants an anchor checkpoint pin at coordinates (or cursor position). In <code>'single'</code> mode, old anchor glides to the new position.</td>
+            </tr>
+            <tr>
+              <td><code>setAnchorMode(mode)</code></td>
+              <td>Method</td>
+              <td>—</td>
+              <td>Switches anchor mode dynamically: <code>'multi'</code> | <code>'single'</code> | <code>'off'</code>.</td>
+            </tr>
+            <tr>
+              <td><code>releaseAllAndDrop()</code></td>
+              <td>Method</td>
+              <td>—</td>
+              <td>Detaches rope from all checkpoints and severs it into Verlet falling gravity.</td>
+            </tr>
+            <tr>
+              <td><code>setBlendMode(mode)</code></td>
+              <td>Method</td>
+              <td>—</td>
+              <td>Dynamically changes cursor blend mode (<code>'difference'</code> | <code>'normal'</code> | <code>'screen'</code> — <em>use screen in dark mode for optimal glow</em>).</td>
+            </tr>
+            <tr>
+              <td><code>reportBug(note)</code></td>
+              <td>Method</td>
+              <td>—</td>
+              <td>Opens email client or direct fallback addressed to <code>mauryanishant2005@gmail.com</code> with attached diagnostics.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Floating 1-Click Bug Reporter Button -->
+  <button class="float-report-btn" onclick="triggerBugReport()" data-cursor-hover="true" title="Report a bug or get help directly">
+    <span>🐞</span>
+    <span>Report Bug</span>
+  </button>
+
+  <!-- Bug Report & Diagnostics Interactive Modal -->
+  <div class="bug-modal-overlay" id="bugReportModal" onclick="if(event.target===this)closeBugModal()">
+    <div class="bug-modal" role="dialog" aria-modal="true" aria-labelledby="bugModalTitle">
+      <div class="bug-modal-header">
+        <h3 id="bugModalTitle"><span>🐞</span> Report Bug / Diagnostic</h3>
+        <button class="bug-modal-close" onclick="closeBugModal()" title="Close dialog" data-cursor-hover="true">&times;</button>
+      </div>
+      <div class="bug-modal-body">
+        <p>Send a direct issue report with your browser diagnostics attached to <strong>mauryanishant2005@gmail.com</strong>.</p>
+        <div class="bug-diag-box" id="bugDiagDetails">Collecting environment info...</div>
+        <p style="font-size:0.82rem; margin:0;">Click <strong>Launch Email</strong> to open your mail app, or <strong>Copy Diagnostics</strong> to paste into an email or issue ticket.</p>
+      </div>
+      <div class="bug-modal-actions">
+        <button type="button" class="bug-modal-btn primary" id="btnLaunchEmail" onclick="launchEmailClient()" data-cursor-hover="true">
+          <span>📧</span>
+          <span>Launch Email</span>
+        </button>
+        <button type="button" class="bug-modal-btn secondary" id="btnCopyDiag" onclick="copyBugDiagnostics()" data-cursor-hover="true">
+          <span>📋</span>
+          <span>Copy Diagnostics</span>
+        </button>
+      </div>
+  </div>
+
+  <!-- AI Agent Settings & Machine-Readable Spec Modal -->
+  <div class="bug-modal-overlay" id="aiManifestModal" onclick="if(event.target===this)closeAiManifestModal()">
+    <div class="bug-modal ai-manifest-modal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+      <div class="bug-modal-header">
+        <h3 id="aiModalTitle"><span>🤖</span> AI Agent Settings &amp; Architecture Specification</h3>
+        <button class="bug-modal-close" onclick="closeAiManifestModal()" title="Close dialog" data-cursor-hover="true">&times;</button>
+      </div>
+      <div class="bug-modal-body">
+        <p>Complete machine-readable JSON schema of all <code>Tendril.js</code> settings for LLMs, autonomous coding agents, and developers. Formatted for instant ingestion by Claude, ChatGPT, Cursor, and Antigravity.</p>
+        <div class="ai-json-container" id="aiSettingsJsonDisplay">Loading settings schema...</div>
+        <p style="font-size:0.82rem; margin:0; display:flex; justify-content:space-between; align-items:center;">
+          <span>Raw Endpoints: <a href="llms.txt" target="_blank" style="color:var(--accent); text-decoration:underline;"><code>/llms.txt</code></a> · <a href="ai-settings.json" target="_blank" style="color:var(--accent); text-decoration:underline;"><code>/ai-settings.json</code></a></span>
+        </p>
+      </div>
+      <div class="bug-modal-actions">
+        <button type="button" class="bug-modal-btn primary" id="btnCopyAiJson" onclick="copyAiSettingsJson()" data-cursor-hover="true">
+          <span>📋</span>
+          <span>Copy AI Spec (JSON)</span>
+        </button>
+        <button type="button" class="bug-modal-btn secondary" onclick="window.open('llms.txt', '_blank')" data-cursor-hover="true">
+          <span>📄</span>
+          <span>Open llms.txt</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Accessible Machine-Readable AI Section in the DOM for Scrapers & Web-Reading LLMs -->
+  <section id="ai-agent-settings-manifest" style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); border:0;" aria-label="Machine-Readable AI Agent Documentation">
+    <h2>Tendril.js AI Agent Settings Manifest</h2>
+    <p>This section is provided for automated AI agents and web crawlers to read all configuration parameters, types, defaults, and descriptions of Tendril.js directly from the webpage DOM.</p>
+    <script type="application/json" id="tendril-ai-settings-raw"></script>
+  </section>
+
+  <footer>
+    <p>Tendril.js — Liquid Rope &amp; Ink Cursor Engine · MIT License</p>
+    <p>Developer Support &amp; Bug Reports: <a href="mailto:mauryanishant2005@gmail.com">mauryanishant2005@gmail.com</a></p>
+    <p><a href="../index.html">← Back to Workspace Root</a></p>
+  </footer>
+
+  <!-- Include Tendril engine -->
+  <script src="tendril.js?v=liquid_elastic_v8"></script>
+
+  <script>
+    let cursor = null;
+
+    const SNIPPETS = {
+      html: `<!-- 1. Include Tendril with the data-tendril attribute -->
+<script src="tendril.js" data-tendril><\/script>
+
+<!-- That's it! It automatically initializes with 1:1 mouse tracking, 
+     text-revealing difference lens, emerald green palette,
+     scroll-locked anchors, Multi & One Anchor modes ('multi' | 'single' | 'off'),
+     water-physics catenary droop & tightening, phone touch trails & spills! -->`,
+
+      js: `// 1. Include script
+<script src="tendril.js"><\/script>
+
+// 2. Initialize with emerald green theme & custom options:
+<script>
+  const cursor = new Tendril({
+    color: '#10b981',              // Emerald Green
+    secondaryColor: '#06b6d4',     // Cyan tail gradient
+    mixBlendMode: 'difference',    // 'difference' (Mendieta text-reveal lens) | 'normal' | 'screen'
+    anchorMode: 'multi',           // 'multi' (multi-pin weaving) | 'single' (1 pin only; follows click) | 'off'
+    usePageLength: true,           // Traverses full page length without breaking
+    offsetSize: 6000,              // Generous extra offset capacity (px)
+    spillOnClick: true,            // Liquid drops spill on click or mobile touch
+    tripleTapAnchor: true,         // Triple-tap to anchor / sever into falling rope
+    multiCheckpoints: true,        // Plant multiple stop pins across the screen
+    preventTextSelectOnTap: false, // Allows native triple-click word/paragraph text selection
+    severedRopeGravity: 0.42       // Verlet falling gravity
+  });
+
+  // Call API methods anytime:
+  cursor.setAnchorMode('single');  // Switch to One Anchor mode (follows new clicks)
+  cursor.setAnchorMode('multi');   // Switch to Multi-Anchor weaving mode
+  cursor.setAnchorMode('off');     // Turn off anchor modes
+  cursor.addCheckpoint(x, y);      // Add or move anchor pin
+  cursor.releaseAllAndDrop();      // Release all pins & cascade cord down
+  cursor.setBlendMode('normal');   // Toggle difference vs normal ink
+  cursor.reportBug();              // Direct bug report with diagnostics
+<\/script>`,
+
+      react: `// In your React / Next.js app:
+'use client';
+import { useEffect, useRef } from 'react';
+import Tendril from './tendril'; // or import Tendril from 'tendril-cursor'
+
+export default function CustomCursor() {
+  const cursorRef = useRef(null);
+
+  useEffect(() => {
+    cursorRef.current = new Tendril({
+      color: '#10b981',
+      secondaryColor: '#06b6d4',
+      mixBlendMode: 'difference',
+      anchorMode: 'multi',         // 'multi' | 'single' | 'off'
+      usePageLength: true,         // Scales rope length to full page height
+      offsetSize: 6000,            // Extra offset capacity
+      spillOnClick: true,
+      tripleTapAnchor: true,
+      multiCheckpoints: true,
+      preventTextSelectOnTap: false
+    });
+
+    // Cleanup on unmount (zero memory leaks)
+    return () => cursorRef.current?.destroy();
+  }, []);
+
+  return null;
+}`,
+
+      vue: `<!-- In your Vue 3 / Nuxt component -->
+<script setup>
+import { onMounted, onUnmounted, ref } from 'vue';
+import Tendril from './tendril';
+
+const cursor = ref(null);
+
+onMounted(() => {
+  cursor.value = new Tendril({
+    color: '#10b981',
+    secondaryColor: '#06b6d4',
+    mixBlendMode: 'difference',
+    anchorMode: 'multi',           // 'multi' | 'single' | 'off'
+    spillOnClick: true,
+    tripleTapAnchor: true,
+    multiCheckpoints: true,
+    preventTextSelectOnTap: false
+  });
+});
+
+onUnmounted(() => {
+  cursor.value?.destroy();
+});
+<\/script>`,
+
+      webflow: `<!-- In Webflow / Shopify "Custom Code" (Before </body> tag): -->
+<script src="https://cdn.jsdelivr.net/gh/your-repo/tendril@latest/tendril.js" data-tendril><\/script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.tendrilInstance) {
+      window.tendrilInstance.setColor('#10b981', '#06b6d4');
+      window.tendrilInstance.setBlendMode('difference');
+      window.tendrilInstance.setAnchorMode('multi'); // 'multi' | 'single' | 'off'
+    }
+  });
+<\/script>`
+    };
+
+    const AI_PROMPTS = {
+      html: `Integrate Tendril.js (a zero-dependency liquid rope & ink cursor physics engine) into my HTML website:
+
+1. Add the script before the closing </body> tag:
+<script src="tendril.js" data-tendril><\/script>
+
+2. Key Features to verify:
+- Emerald green (#10b981) liquid physics with Cyan (#06b6d4) secondary gradient.
+- Difference blend mode lens (text inverts and is clearly readable right through the liquid droplet).
+- Natural 1:1 pointer tracking without sticky magnetic drag.
+- Page-Aware Rope Scaling: usePageLength: true ensures the cord dynamically scales with the full scrollable document height (scrollHeight) so anchors can span down the entire page journey without breaking.
+- Increased Offset Size (offsetSize: 6000): Generous extra capacity buffer and expressive catenary sag (ropeSlack: 0.42, ropeMinSlack: 42).
+- Multi Anchor & One Anchor modes: Support for 'multi' (waypoint weaving) and 'single' (1 anchor only; smoothly follows new clicks without breaking), plus 'off'.
+- Smooth page scrolling: Anchors, connecting spans, and severed falling ropes stay naturally locked to document content during page scroll.
+- Mobile / phone touch support: touch/drag draws fluid rope, tapping erupts pressurized liquid spills.
+- Triple-tap text selection preserved (preventTextSelectOnTap: false).
+
+Please integrate this into my project HTML structure.`,
+
+      js: `I want to integrate Tendril.js into my JavaScript application:
+
+1. Import or load tendril.js:
+<script src="tendril.js"><\/script>
+
+2. Instantiate Tendril with custom options:
+const cursor = new Tendril({
+  color: '#10b981',             // Emerald green
+  secondaryColor: '#06b6d4',    // Cyan tail gradient
+  mixBlendMode: 'difference',   // Text reveal inversion lens
+  anchorMode: 'multi',          // 'multi' | 'single' | 'off'
+  usePageLength: true,          // Dynamically scales rope length with full page scroll height
+  offsetSize: 6000,             // Extra offset capacity buffer in px
+  ropeSlack: 0.42,              // Catenary sag depth
+  ropeMinSlack: 42,             // Baseline droop offset
+  spillOnClick: true,           // Pressurized liquid spill
+  tripleTapAnchor: true,        // Triple-tap waypoint weaving
+  multiCheckpoints: true,       // Sequential stop pins in 'multi' mode
+  preventTextSelectOnTap: false,// Allows native triple-click word/paragraph text selection
+  severedRopeGravity: 0.42      // Verlet falling gravity
+});
+
+// Methods available:
+cursor.setAnchorMode('single'); // One Anchor mode: anchor smoothly follows new clicks
+cursor.setAnchorMode('multi');  // Multi Anchor mode: plants multiple pins
+cursor.setAnchorMode('off');    // Turns off anchoring
+cursor.addCheckpoint(x, y);     // Add or move anchor pin
+cursor.releaseAllAndDrop();     // Release all checkpoints into severed falling rope
+cursor.spill(x, y);             // Trigger liquid spills
+
+Please wire this cleanly into my app's lifecycle with proper cleanup (cursor.destroy()).`,
+
+      react: `I want to integrate Tendril.js into my React / Next.js application:
+
+1. Create a client-side CustomCursor component (e.g. TendrilCursor.tsx):
+'use client';
+import { useEffect, useRef } from 'react';
+import Tendril from './tendril'; // or npm install tendril-cursor
+
+export default function TendrilCursor() {
+  const cursorRef = useRef(null);
+
+  useEffect(() => {
+    cursorRef.current = new Tendril({
+      color: '#10b981',
+      secondaryColor: '#06b6d4',
+      mixBlendMode: 'difference',
+      anchorMode: 'multi',         // 'multi' | 'single' | 'off'
+      usePageLength: true,         // Dynamically calculates rope length using document scrollHeight
+      offsetSize: 6000,            // Extra offset capacity buffer
+      ropeSlack: 0.42,             // Natural catenary sag droop
+      ropeMinSlack: 42,            // Minimum slack offset in px
+      spillOnClick: true,
+      tripleTapAnchor: true,
+      multiCheckpoints: true,
+      preventTextSelectOnTap: false,
+      severedRopeGravity: 0.42
+    });
+
+    return () => cursorRef.current?.destroy();
+  }, []);
+
+  return null;
+}
+
+2. Mount <TendrilCursor /> in root layout or App.tsx. Please implement this in my project.`,
+
+      vue: `I want to integrate Tendril.js into my Vue 3 / Nuxt application:
+
+<script setup>
+import { onMounted, onUnmounted, ref } from 'vue';
+import Tendril from './tendril';
+
+const cursor = ref(null);
+
+onMounted(() => {
+  cursor.value = new Tendril({
+    color: '#10b981',
+    secondaryColor: '#06b6d4',
+    mixBlendMode: 'difference',
+    anchorMode: 'multi',           // 'multi' | 'single' | 'off'
+    usePageLength: true,           // Scales rope length to full page height
+    offsetSize: 6000,              // Extra offset capacity buffer
+    ropeSlack: 0.42,               // Catenary sag factor
+    ropeMinSlack: 42,              // Baseline droop offset
+    spillOnClick: true,
+    tripleTapAnchor: true,
+    multiCheckpoints: true,
+    preventTextSelectOnTap: false
+  });
+});
+
+onUnmounted(() => {
+  cursor.value?.destroy();
+});
+<\/script>
+
+Please integrate this component into my Vue 3 app template.`,
+
+      webflow: `I want to add the Tendril.js liquid rope cursor to my Webflow / Shopify site:
+
+Insert this snippet into Webflow Project Settings -> Custom Code -> Footer Code (Before </body>):
+
+<script src="https://cdn.jsdelivr.net/gh/your-repo/tendril@latest/tendril.js" data-tendril><\/script>
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    if (window.tendrilInstance) {
+      window.tendrilInstance.setColor('#10b981', '#06b6d4');
+      window.tendrilInstance.setBlendMode('difference');
+      window.tendrilInstance.setAnchorMode('multi'); // or 'single'
+      window.tendrilInstance.setOptions({
+        usePageLength: true,
+        offsetSize: 6000,
+        ropeSlack: 0.42,
+        ropeMinSlack: 42
+      });
+    }
+  });
+<\/script>
+
+Please adapt this for my site structure.`
+    };
+
+    let activeTab = 'html';
+
+    document.addEventListener('DOMContentLoaded', () => {
+      cursor = new Tendril({
+        color: '#10b981',
+        secondaryColor: '#06b6d4',
+        mixBlendMode: 'difference',
+        segments: 26,
+        segTau: 36,
+        gooeyBlur: 7,
+        strokeWidth: 9,
+        spillOnClick: true,
+        splashOnClick: true,
+        spillCount: 16,
+        gravity: 0.38,
+        tripleTapAnchor: true,
+        multiCheckpoints: true,
+        anchorMode: 'multi',
+        usePageLength: true,
+        offsetSize: 6000,
+        ropeLengthOffset: 6000,
+        ropeSlack: 0.42,
+        ropeMinSlack: 42,
+        preventTextSelectOnTap: false,
+        ropeTensionSensitivity: 1.0,
+        severedRopeGravity: 0.42
+      });
+
+      cursor.onAnchorChange = function(isAnchored, data) {
+        updateAnchorUI(isAnchored, data);
+      };
+
+      cursor.onAnchorModeChange = function(mode) {
+        updateAnchorModePills(mode);
+      };
+
+      setupColorStudio();
+      setupSliders();
+      setupThemeToggle();
+      renderSnippet('html');
+    });
+
+    function switchTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = event ? event.target : null;
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const labels = {
+        html: 'Plain HTML (data-tendril auto-init)',
+        js: 'Vanilla JavaScript (UMD / Modular)',
+        react: 'React / Next.js (useTendril pattern)',
+        vue: 'Vue 3 / Nuxt (Composition API)',
+        webflow: 'Webflow / Shopify / WordPress'
+      };
+      document.getElementById('tabLanguageLabel').textContent = labels[tab] || tab;
+      renderSnippet(tab);
+    }
+
+    function renderSnippet(tab) {
+      const el = document.getElementById('activeCodeSnippet');
+      el.textContent = SNIPPETS[tab] || '';
+    }
+
+    function copyActiveCode() {
+      const code = SNIPPETS[activeTab] || '';
+      navigator.clipboard.writeText(code).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Code'; }, 2000);
+      });
+    }
+
+    function copyAiPrompt() {
+      const prompt = AI_PROMPTS[activeTab] || '';
+      navigator.clipboard.writeText(prompt).then(() => {
+        const btn = document.querySelector('.copy-prompt-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<span>✅</span><span>Prompt Copied!</span>';
+        setTimeout(() => { btn.innerHTML = orig; }, 2000);
+      });
+    }
+
+    function testMode(num) {
+      if (!cursor) return;
+      if (num === 1) {
+        selectAnchorMode('off');
+        cursor.clearCheckpoints();
+      } else if (num === 2) {
+        selectAnchorMode('multi');
+        cursor.addCheckpoint();
+      } else if (num === 3) {
+        if (!cursor.isAnchored) {
+          cursor.addCheckpoint(window.innerWidth * 0.3, window.innerHeight * 0.4);
+          cursor.addCheckpoint(window.innerWidth * 0.7, window.innerHeight * 0.4);
+        }
+        setTimeout(() => {
+          cursor.releaseAllAndDrop();
+        }, 150);
+      } else if (num === 4) {
+        cursor.spill({ count: 24, speed: 6.5 });
+      } else if (num === 5) {
+        selectAnchorMode('single');
+        if (!cursor.isAnchored) {
+          cursor.addCheckpoint();
+        } else {
+          // If already anchored, move it to test following behavior
+          cursor.addCheckpoint(cursor.target.x, cursor.target.y);
+        }
+      }
+    }
+
+    function selectAnchorMode(mode) {
+      if (!cursor) return;
+      cursor.setAnchorMode(mode);
+      updateAnchorModePills(mode);
+      if (mode !== 'off' && !cursor.isAnchored) {
+        cursor.addCheckpoint();
+      }
+    }
+
+    function updateAnchorModePills(mode) {
+      const pMulti = document.getElementById('modePillMulti');
+      const pSingle = document.getElementById('modePillSingle');
+      const pOff = document.getElementById('modePillOff');
+      if (pMulti) pMulti.classList.toggle('active', mode === 'multi');
+      if (pSingle) pSingle.classList.toggle('active', mode === 'single');
+      if (pOff) pOff.classList.toggle('active', mode === 'off');
+
+      const bannerTitle = document.getElementById('guideTitle');
+      const bannerDesc = document.getElementById('guideDesc');
+      if (mode === 'single') {
+        if (bannerTitle) bannerTitle.textContent = '🎯 One Anchor Mode (Active):';
+        if (bannerDesc) bannerDesc.textContent = 'Only 1 anchor exists. Triple-tap to anchor; click anywhere else and the anchor smoothly follows to the new spot without breaking!';
+      } else if (mode === 'multi') {
+        if (bannerTitle) bannerTitle.textContent = '📍 Multi-Anchor Weaving Mode (Active):';
+        if (bannerDesc) bannerDesc.textContent = 'Weave multiple anchor points across the page. Click anywhere to drop extra pins; rope tightens or loosens based on total length!';
+      } else if (mode === 'off') {
+        if (bannerTitle) bannerTitle.textContent = '🚫 Anchor Modes Disabled:';
+        if (bannerDesc) bannerDesc.textContent = 'Anchoring is turned off. You get pure free-flowing liquid rope kinematics with spills on tap/click.';
+      }
+    }
+
+    function triggerAnchorToggle() {
+      if (!cursor) return;
+      // Always adds a pin in multi mode or moves the pin in single mode - never breaks the rope!
+      cursor.addCheckpoint();
+    }
+
+    function triggerSeverRope() {
+      if (cursor && cursor.isAnchored) {
+        cursor.releaseAllAndDrop();
+      }
+    }
+
+    function triggerManualSpill() {
+      if (cursor) cursor.spill({ count: 20 });
+    }
+
+    function applyBlendMode(mode) {
+      if (!cursor) return;
+      cursor.setBlendMode(mode);
+
+      document.querySelectorAll('.lens-pill').forEach(p => p.classList.remove('active'));
+      if (mode === 'difference') document.getElementById('pillDiff').classList.add('active');
+      if (mode === 'normal') document.getElementById('pillNormal').classList.add('active');
+      if (mode === 'screen') document.getElementById('pillScreen').classList.add('active');
+
+      checkScreenNotice();
+    }
+
+    function triggerBugReport() {
+      const modal = document.getElementById('bugReportModal');
+      const diagBox = document.getElementById('bugDiagDetails');
+      
+      const diagInfo = [
+        '--- TENDRIL.JS RUNTIME DIAGNOSTIC ---',
+        'User Agent: ' + navigator.userAgent,
+        'Viewport: ' + window.innerWidth + 'x' + window.innerHeight,
+        'Scroll Position: (' + (window.scrollX || 0) + ', ' + (window.scrollY || 0) + ')',
+        'Device Pixel Ratio: ' + (window.devicePixelRatio || 1),
+        'Touch Supported: ' + (('ontouchstart' in window) || (navigator.maxTouchPoints > 0)),
+        'Anchor Mode: ' + (cursor ? cursor.opts.anchorMode : 'N/A'),
+        'Is Anchored: ' + (cursor ? cursor.isAnchored : 'N/A'),
+        'Active Checkpoints: ' + (cursor && cursor.checkpoints ? cursor.checkpoints.length : 0),
+        'Active Severed Ropes: ' + (cursor && cursor.severedRopes ? cursor.severedRopes.length : 0),
+        'Active Droplets: ' + (cursor && cursor.drops ? cursor.drops.length : 0),
+        'Theme: ' + (document.body.classList.contains('dark-mode') ? 'Dark' : 'Light'),
+        'URL: ' + window.location.href,
+        'Timestamp: ' + new Date().toISOString()
+      ].join('\n');
+
+      if (diagBox) {
+        diagBox.textContent = diagInfo;
+      }
+
+      if (modal) {
+        modal.classList.add('active');
+      } else {
+        // Fallback if modal not present in DOM
+        launchEmailClient();
+      }
+    }
+
+    function closeBugModal() {
+      const modal = document.getElementById('bugReportModal');
+      if (modal) modal.classList.remove('active');
+    }
+
+    function launchEmailClient() {
+      const diagBox = document.getElementById('bugDiagDetails');
+      const diagText = diagBox ? diagBox.textContent : '';
+      const subject = encodeURIComponent('Tendril.js Bug Report');
+      const body = encodeURIComponent(
+        'Hi Nishant,\n\nI encountered the following issue in Tendril.js:\n\n[Describe what happened here]\n\n' + diagText
+      );
+      const mailtoUrl = 'mailto:mauryanishant2005@gmail.com?subject=' + subject + '&body=' + body;
+
+      // Create temporary anchor to open in new tab / app safely without browser popup block
+      const a = document.createElement('a');
+      a.href = mailtoUrl;
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        if (a.parentNode) a.parentNode.removeChild(a);
+      }, 250);
+    }
+
+    function copyBugDiagnostics() {
+      const diagBox = document.getElementById('bugDiagDetails');
+      const text = diagBox ? diagBox.textContent : '';
+      if (!text) return;
+
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('btnCopyDiag');
+        if (btn) {
+          const orig = btn.innerHTML;
+          btn.innerHTML = '<span>✅</span><span>Copied!</span>';
+          setTimeout(() => { btn.innerHTML = orig; }, 2000);
+        }
+      }).catch(() => {
+        alert('Failed to copy to clipboard. Please select and copy text from the diagnostics box manually.');
+      });
+    }
+
+    function updateAnchorUI(isAnchored, data) {
+      const hud = document.getElementById('anchorHud');
+      const hudDot = document.getElementById('hudDot');
+      const hudText = document.getElementById('hudText');
+      const btnIcon = document.getElementById('anchorBtnIcon');
+      const btnLabel = document.getElementById('anchorBtnLabel');
+      const bannerSeverBtn = document.getElementById('bannerSeverBtn');
+      const bannerAnchorBtn = document.getElementById('bannerAnchorBtn');
+      const bannerTitle = document.getElementById('guideTitle');
+      const bannerDesc = document.getElementById('guideDesc');
+
+      if (isAnchored) {
+        hud.classList.add('anchored');
+        hudDot.textContent = '⚓';
+        hudText.textContent = 'ANCHORED & STRETCHING';
+        var isSingle = cursor && cursor.opts && cursor.opts.anchorMode === 'single';
+        btnIcon.textContent = isSingle ? '🎯' : '📍';
+        btnLabel.textContent = isSingle ? 'Move Anchor Here' : 'Plant Next Pin';
+        if (bannerSeverBtn) bannerSeverBtn.style.display = 'inline-block';
+        if (bannerAnchorBtn) bannerAnchorBtn.textContent = isSingle ? '🎯 Move Anchor' : '📍 Plant Next Pin';
+        bannerTitle.textContent = '⚓ Tail Anchored! Stretch the cord across the page:';
+        bannerDesc.textContent = 'Click anywhere or press buttons to plant waypoints / glide anchor. Click "✂️ Sever & Drop Rope" whenever you want to cut it!';
+      } else {
+        hud.classList.remove('anchored');
+        hudDot.textContent = '🟢';
+        hudText.textContent = 'FREE ROPE';
+        btnIcon.textContent = '⚓';
+        btnLabel.textContent = 'Drop Anchor';
+        if (bannerSeverBtn) bannerSeverBtn.style.display = 'none';
+        if (bannerAnchorBtn) bannerAnchorBtn.textContent = '⚓ Drop Anchor Here';
+        bannerTitle.textContent = '⚓ Anchor & Weaving Modes:';
+        bannerDesc.textContent = 'Click anywhere or use the buttons below to anchor the cord and weave waypoints across the page!';
+      }
+    }
+
+    function applyColor(pri, sec) {
+      document.getElementById('primaryColor').value = pri;
+      document.getElementById('primaryHex').value = pri.toUpperCase();
+      if (sec) document.getElementById('tailColor').value = sec;
+
+      document.documentElement.style.setProperty('--accent', pri);
+      document.documentElement.style.setProperty('--accent-glow', pri + '35');
+
+      if (cursor) cursor.setColor(pri, sec);
+    }
+
+    function setupColorStudio() {
+      const picker = document.getElementById('primaryColor');
+      const hexInput = document.getElementById('primaryHex');
+      const tailPicker = document.getElementById('tailColor');
+
+      picker.addEventListener('input', (e) => {
+        const val = e.target.value;
+        hexInput.value = val.toUpperCase();
+        document.documentElement.style.setProperty('--accent', val);
+        document.documentElement.style.setProperty('--accent-glow', val + '35');
+        if (cursor) cursor.setColor(val, tailPicker.value);
+      });
+
+      hexInput.addEventListener('change', (e) => {
+        let val = e.target.value.trim();
+        if (!val.startsWith('#')) val = '#' + val;
+        if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+          picker.value = val;
+          document.documentElement.style.setProperty('--accent', val);
+          document.documentElement.style.setProperty('--accent-glow', val + '35');
+          if (cursor) cursor.setColor(val, tailPicker.value);
+        }
+      });
+
+      tailPicker.addEventListener('input', (e) => {
+        if (cursor) cursor.setColor(picker.value, e.target.value);
+      });
+    }
+
+    function setupSliders() {
+      const sTau = document.getElementById('slider-tau');
+      const vTau = document.getElementById('val-tau');
+      if (sTau) sTau.addEventListener('input', (e) => {
+        vTau.textContent = e.target.value + ' ms';
+        cursor.setOptions({ segTau: parseFloat(e.target.value) });
+      });
+
+      const sSens = document.getElementById('slider-sens');
+      const vSens = document.getElementById('val-sens');
+      if (sSens) sSens.addEventListener('input', (e) => {
+        vSens.textContent = parseFloat(e.target.value).toFixed(1) + 'x';
+        cursor.setOptions({ ropeTensionSensitivity: parseFloat(e.target.value) });
+      });
+
+      const sSlack = document.getElementById('slider-slack');
+      const vSlack = document.getElementById('val-slack');
+      if (sSlack) sSlack.addEventListener('input', (e) => {
+        vSlack.textContent = parseFloat(e.target.value).toFixed(2);
+        cursor.setOptions({ ropeSlack: parseFloat(e.target.value) });
+      });
+
+      const sWidth = document.getElementById('slider-width');
+      const vWidth = document.getElementById('val-width');
+      if (sWidth) sWidth.addEventListener('input', (e) => {
+        vWidth.textContent = e.target.value + ' px';
+        cursor.setOptions({ strokeWidth: parseFloat(e.target.value) });
+      });
+
+      const sBlur = document.getElementById('slider-blur');
+      const vBlur = document.getElementById('val-blur');
+      if (sBlur) sBlur.addEventListener('input', (e) => {
+        vBlur.textContent = e.target.value + ' px';
+        cursor.setOptions({ gooeyBlur: parseFloat(e.target.value) });
+      });
+
+      const sGrav = document.getElementById('slider-grav');
+      const vGrav = document.getElementById('val-grav');
+      if (sGrav) sGrav.addEventListener('input', (e) => {
+        vGrav.textContent = e.target.value;
+        cursor.setOptions({ severedRopeGravity: parseFloat(e.target.value) });
+      });
+
+      const sSpill = document.getElementById('slider-spill');
+      const vSpill = document.getElementById('val-spill');
+      if (sSpill) sSpill.addEventListener('input', (e) => {
+        vSpill.textContent = e.target.value + ' drops';
+        cursor.setOptions({ spillCount: parseInt(e.target.value, 10) });
+      });
+
+      const sOffset = document.getElementById('slider-offset');
+      const vOffset = document.getElementById('val-offset');
+      if (sOffset) sOffset.addEventListener('input', (e) => {
+        vOffset.textContent = e.target.value + ' px';
+        cursor.setOptions({ offsetSize: parseFloat(e.target.value), ropeLengthOffset: parseFloat(e.target.value) });
+      });
+
+      const sPageLen = document.getElementById('slider-pagelen');
+      const vPageLen = document.getElementById('val-pagelen');
+      if (sPageLen) sPageLen.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        vPageLen.textContent = val.toFixed(2) + 'x page';
+        cursor.setOptions({ usePageLength: true, pageLengthRatio: val });
+      });
+    }
+
+    function toggleTheme(forceDark) {
+      if (typeof forceDark === 'boolean') {
+        if (forceDark) {
+          document.body.classList.add('dark-mode');
+        } else {
+          document.body.classList.remove('dark-mode');
+        }
+      } else {
+        document.body.classList.toggle('dark-mode');
+      }
+
+      const isDark = document.body.classList.contains('dark-mode');
+      const icon = document.getElementById('themeIcon');
+      const label = document.getElementById('themeLabel');
+      if (icon && label) {
+        if (isDark) {
+          icon.textContent = '☀️';
+          label.textContent = 'Light';
+        } else {
+          icon.textContent = '🌙';
+          label.textContent = 'Dark';
+        }
+      }
+      checkScreenNotice();
+    }
+
+    function checkScreenNotice() {
+      const notice = document.getElementById('screenNotice');
+      if (!notice) return;
+      const isScreenActive = document.getElementById('pillScreen') && document.getElementById('pillScreen').classList.contains('active');
+      const isLightMode = !document.body.classList.contains('dark-mode');
+      if (isScreenActive && isLightMode) {
+        notice.style.display = 'flex';
+      } else {
+        notice.style.display = 'none';
+      }
+    }
+
+    function setupThemeToggle() {
+      const btn = document.getElementById('themeToggleBtn');
+      if (btn) {
+        btn.addEventListener('click', () => {
+          toggleTheme();
+        });
+      }
+    }
+
+    /* --- DEVELOPER SETTINGS INFO & AI AGENT KNOWLEDGE SYSTEM --- */
+    const AI_SETTINGS_SCHEMA = {
+      name: "Tendril.js",
+      version: "1.0.0",
+      description: "Liquid Rope & Ink Physics Engine. Frame-rate independent Verlet kinematics synthesized with SVG gooey fluid dynamics.",
+      repository: "https://github.com/NISHANTTMAURYA/saloni-portfolio",
+      documentationUrl: "https://nishanttmaurya.github.io/saloni-portfolio/hybrid-cursor-showcase.html",
+      aiDocsUrl: "https://nishanttmaurya.github.io/saloni-portfolio/llms.txt",
+      settings: [
+        {
+          name: "Rope Tension (Lag)",
+          param: "segTau",
+          type: "number",
+          unit: "ms",
+          default: 36,
+          min: 15,
+          max: 80,
+          description: "Frame-rate independent exponential smoothing lag time constant per segment. Lower (15ms) = rigid, snappy follow; Higher (80ms) = loose floating trailing cord."
+        },
+        {
+          name: "Tension Sensitivity",
+          param: "ropeTensionSensitivity",
+          type: "number",
+          unit: "multiplier",
+          default: 1.0,
+          min: 0.2,
+          max: 2.5,
+          description: "Multiplier for dynamic tension build-up when cursor stretches away from anchor pins. 2.5x snaps spans taut rapidly; 0.2x keeps the cord relaxed and loose."
+        },
+        {
+          name: "Slack / Water Sag",
+          param: "ropeSlack",
+          type: "number",
+          unit: "fraction",
+          default: 0.42,
+          min: 0.10,
+          max: 0.70,
+          description: "Maximum slack fraction when cursor is close to anchor pins. Governs catenary sag depth and gravitational water drooping."
+        },
+        {
+          name: "Tendon Thickness",
+          param: "strokeWidth",
+          type: "number",
+          unit: "px",
+          default: 9,
+          min: 4,
+          max: 18,
+          description: "Base physical SVG stroke width of the central tendon spine. Features Poisson necking (thins down organically as cord stretches over long spans)."
+        },
+        {
+          name: "Gooey Viscosity (Blur)",
+          param: "gooeyBlur",
+          type: "number",
+          unit: "px",
+          default: 7,
+          min: 2,
+          max: 14,
+          description: "SVG feGaussianBlur radius in the #goo filter. Merged with high alpha contrast (gooeyContrast: 34) to fuse vertebrae into organic liquid rubber surface tension."
+        },
+        {
+          name: "Severed Rope Gravity",
+          param: "severedRopeGravity",
+          type: "number",
+          unit: "px/frame^2",
+          default: 0.42,
+          min: 0.15,
+          max: 0.95,
+          description: "Downward gravitational acceleration applied to joints of severed falling ropes during Verlet integration physics simulation."
+        },
+        {
+          name: "Spill Drops Count",
+          param: "spillCount",
+          type: "number",
+          unit: "drops",
+          default: 16,
+          min: 6,
+          max: 36,
+          description: "Number of viscous liquid drops erupted per pointer click or mobile touch tap. Drops arc upward with velocity and cascade downward under gravity."
+        },
+        {
+          name: "Rope Offset Capacity",
+          param: "offsetSize",
+          altParam: "ropeLengthOffset",
+          type: "number",
+          unit: "px",
+          default: 6000,
+          min: 1000,
+          max: 15000,
+          description: "Extra pixel offset buffer added to physical rope capacity on top of page/screen dimensions. Allows extensive weaving down tall pages before FIFO limits pop older pins."
+        },
+        {
+          name: "Page Length Scale",
+          param: "pageLengthRatio",
+          type: "number",
+          unit: "multiplier",
+          default: 1.15,
+          min: 0.5,
+          max: 2.5,
+          description: "Multiplier applied to total document scroll height (document.documentElement.scrollHeight). Allows the rope to dynamically stretch across the entire scrollable page height without breaking."
+        },
+        {
+          name: "Use Page Length",
+          param: "usePageLength",
+          type: "boolean",
+          default: true,
+          description: "When true, calculates max rope capacity using the full document scroll height rather than viewport diagonal alone."
+        },
+        {
+          name: "Anchor Mode",
+          param: "anchorMode",
+          type: "string",
+          default: "multi",
+          options: ["multi", "single", "off"],
+          description: "'multi' for sequential waypoint weaving, 'single' for 1 anchor pin that glides with damped spring follow, 'off' to disable."
+        },
+        {
+          name: "CSS Blend Mode",
+          param: "mixBlendMode",
+          type: "string",
+          default: "difference",
+          options: ["difference", "normal", "screen"],
+          description: "'difference' (Mendieta text-reveal lens), 'normal' (opaque ink), 'screen' (additive dark-mode cyber glow)."
+        }
+      ]
+    };
+
+    // Expose globally for browser AI agents & DevTools
+    window.__TENDRIL_AI_SETTINGS__ = AI_SETTINGS_SCHEMA;
+
+    // Populate accessible DOM block for AI crawlers
+    try {
+      const rawBlock = document.getElementById('tendril-ai-settings-raw');
+      if (rawBlock) {
+        rawBlock.textContent = JSON.stringify(AI_SETTINGS_SCHEMA);
+      }
+    } catch (_) {}
+
+    function toggleSettingInfo(id) {
+      const drawer = document.getElementById('doc-' + id);
+      const btn = document.getElementById('btnInfo-' + id);
+      if (drawer) {
+        const isOpen = drawer.classList.toggle('open');
+        if (btn) btn.classList.toggle('active', isOpen);
+      }
+    }
+
+    let allInfoOpen = false;
+    function toggleAllSettingsInfo() {
+      allInfoOpen = !allInfoOpen;
+      document.querySelectorAll('.setting-doc-drawer').forEach(d => {
+        d.classList.toggle('open', allInfoOpen);
+      });
+      document.querySelectorAll('.setting-info-btn').forEach(b => {
+        b.classList.toggle('active', allInfoOpen);
+      });
+      const txt = document.getElementById('btnToggleAllInfoText');
+      if (txt) txt.textContent = allInfoOpen ? 'Hide Developer Info' : 'Developer Info';
+    }
+
+    function openAiManifestModal() {
+      const modal = document.getElementById('aiManifestModal');
+      const box = document.getElementById('aiSettingsJsonDisplay');
+      if (box) {
+        box.textContent = JSON.stringify(AI_SETTINGS_SCHEMA, null, 2);
+      }
+      if (modal) modal.style.display = 'flex';
+    }
+
+    function closeAiManifestModal() {
+      const modal = document.getElementById('aiManifestModal');
+      if (modal) modal.style.display = 'none';
+    }
+
+    function copyAiSettingsJson() {
+      const json = JSON.stringify(AI_SETTINGS_SCHEMA, null, 2);
+      navigator.clipboard.writeText(json).then(() => {
+        const btn = document.getElementById('btnCopyAiJson');
+        if (btn) {
+          const orig = btn.innerHTML;
+          btn.innerHTML = '<span>✅</span><span>Copied for AI Agent!</span>';
+          setTimeout(() => { btn.innerHTML = orig; }, 2000);
+        }
+      });
+    }
+  </script>
+</body>
+</html>

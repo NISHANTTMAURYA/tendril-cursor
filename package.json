@@ -1,0 +1,31 @@
+{
+  "name": "tendril-cursor",
+  "version": "1.0.0",
+  "description": "Liquid Rope & Ink Cursor Physics Engine. Synthesizes gooey SVG fluid dynamics with frame-rate independent kinematics, triple-tap anchor pinning, and severed falling ropes.",
+  "main": "tendril.js",
+  "module": "tendril.js",
+  "types": "tendril.d.ts",
+  "scripts": {
+    "test": "node -c tendril.js"
+  },
+  "keywords": [
+    "cursor",
+    "physics",
+    "custom-cursor",
+    "fluid",
+    "liquid",
+    "rope",
+    "svg-gooey",
+    "motion",
+    "creative-coding",
+    "ui"
+  ],
+  "author": "Nishant Maurya",
+  "license": "MIT",
+  "files": [
+    "tendril.js",
+    "tendril.d.ts",
+    "README.md",
+    "LICENSE"
+  ]
+}

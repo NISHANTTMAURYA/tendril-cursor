@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "name": "Tendril.js",
+  "version": "1.0.0",
+  "description": "Liquid Rope & Ink Physics Engine. Frame-rate independent Verlet kinematics synthesized with SVG gooey fluid dynamics.",
+  "repository": "https://github.com/NISHANTTMAURYA/saloni-portfolio",
+  "documentationUrl": "https://nishanttmaurya.github.io/saloni-portfolio/hybrid-cursor-showcase.html",
+  "aiDocsUrl": "https://nishanttmaurya.github.io/saloni-portfolio/llms.txt",
+  "settings": [
+    {
+      "name": "Rope Tension (Lag)",
+      "param": "segTau",
+      "type": "number",
+      "unit": "ms",
+      "default": 36,
+      "min": 15,
+      "max": 80,
+      "description": "Frame-rate independent exponential smoothing lag time constant per segment. Lower (15ms) = rigid, snappy follow; Higher (80ms) = loose floating trailing cord."
+    },
+    {
+      "name": "Tension Sensitivity",
+      "param": "ropeTensionSensitivity",
+      "type": "number",
+      "unit": "multiplier",
+      "default": 1.0,
+      "min": 0.2,
+      "max": 2.5,
+      "description": "Multiplier for dynamic tension build-up when cursor stretches away from anchor pins. 2.5x snaps spans taut rapidly; 0.2x keeps the cord relaxed and loose."
+    },
+    {
+      "name": "Slack / Water Sag",
+      "param": "ropeSlack",
+      "type": "number",
+      "unit": "fraction",
+      "default": 0.42,
+      "min": 0.10,
+      "max": 0.70,
+      "description": "Maximum slack fraction when cursor is close to anchor pins. Governs catenary sag depth and gravitational water drooping."
+    },
+    {
+      "name": "Tendon Thickness",
+      "param": "strokeWidth",
+      "type": "number",
+      "unit": "px",
+      "default": 9,
+      "min": 4,
+      "max": 18,
+      "description": "Base physical SVG stroke width of the central tendon spine. Features Poisson necking (thins down organically as cord stretches over long spans)."
+    },
+    {
+      "name": "Gooey Viscosity (Blur)",
+      "param": "gooeyBlur",
+      "type": "number",
+      "unit": "px",
+      "default": 7,
+      "min": 2,
+      "max": 14,
+      "description": "SVG feGaussianBlur radius in the #goo filter. Merged with high alpha contrast (gooeyContrast: 34) to fuse vertebrae into organic liquid rubber surface tension."
+    },
+    {
+      "name": "Severed Rope Gravity",
+      "param": "severedRopeGravity",
+      "type": "number",
+      "unit": "px/frame^2",
+      "default": 0.42,
+      "min": 0.15,
+      "max": 0.95,
+      "description": "Downward gravitational acceleration applied to joints of severed falling ropes during Verlet integration physics simulation."
+    },
+    {
+      "name": "Spill Drops Count",
+      "param": "spillCount",
+      "type": "number",
+      "unit": "drops",
+      "default": 16,
+      "min": 6,
+      "max": 36,
+      "description": "Number of viscous liquid drops erupted per pointer click or mobile touch tap. Drops arc upward with velocity and cascade downward under gravity."
+    },
+    {
+      "name": "Rope Offset Capacity",
+      "param": "offsetSize",
+      "altParam": "ropeLengthOffset",
+      "type": "number",
+      "unit": "px",
+      "default": 6000,
+      "min": 1000,
+      "max": 15000,
+      "description": "Extra pixel offset buffer added to physical rope capacity on top of page/screen dimensions. Allows extensive weaving down tall pages before FIFO limits pop older pins."
+    },
+    {
+      "name": "Page Length Scale",
+      "param": "pageLengthRatio",
+      "type": "number",
+      "unit": "multiplier",
+      "default": 1.15,
+      "min": 0.5,
+      "max": 2.5,
+      "description": "Multiplier applied to total document scroll height (document.documentElement.scrollHeight). Allows the rope to dynamically stretch across the entire scrollable page height without breaking."
+    },
+    {
+      "name": "Use Page Length",
+      "param": "usePageLength",
+      "type": "boolean",
+      "default": true,
+      "description": "When true, calculates max rope capacity using the full document scroll height rather than viewport diagonal alone."
+    },
+    {
+      "name": "Anchor Mode",
+      "param": "anchorMode",
+      "type": "string",
+      "default": "multi",
+      "options": ["multi", "single", "off"],
+      "description": "'multi' for sequential waypoint weaving, 'single' for 1 anchor pin that glides with damped spring follow, 'off' to disable."
+    },
+    {
+      "name": "CSS Blend Mode",
+      "param": "mixBlendMode",
+      "type": "string",
+      "default": "difference",
+      "options": ["difference", "normal", "screen"],
+      "description": "'difference' (Mendieta text-reveal lens), 'normal' (opaque ink), 'screen' (additive dark-mode cyber glow)."
+    }
+  ]
+}
