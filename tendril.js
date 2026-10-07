@@ -108,7 +108,8 @@
     maxSeveredRopes: 5,         // Maximum simultaneous falling severed ropes
     zIndex: 999999,             // Layer priority
     respectReducedMotion: true,
-    forceTouch: false
+    forceTouch: false,
+    disableOnTouch: true        // Automatically disables cursor engine on mobile/touchscreen devices
   };
 
   /* ---------------- Color Utilities ---------------- */
@@ -200,11 +201,20 @@
   }
 
   Tendril.prototype.init = function () {
-    var coarseOnly = window.matchMedia && window.matchMedia('(pointer: coarse)').matches &&
-                     !window.matchMedia('(any-pointer: fine)').matches;
+    var isTouchDevice = (
+      (window.matchMedia && window.matchMedia('(pointer: coarse)').matches && !window.matchMedia('(any-pointer: fine)').matches) ||
+      ('ontouchstart' in window) ||
+      (navigator.maxTouchPoints > 0 && !window.matchMedia('(any-pointer: fine)').matches)
+    );
 
-    // Mobile Phone Optimization: Only hide native OS cursor on desktop (fine pointers)
-    if (this.opts.hideNativeCursor && !coarseOnly) {
+    // Completely disable on mobile/touchscreen devices
+    if (this.opts.disableOnTouch && isTouchDevice && !this.opts.forceTouch) {
+      this.initialized = false;
+      return;
+    }
+
+    // Only hide native OS cursor on desktop (fine pointers)
+    if (this.opts.hideNativeCursor && !isTouchDevice) {
       this._applyHideNativeCursor();
     }
 
